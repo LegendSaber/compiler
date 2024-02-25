@@ -388,6 +388,22 @@ impl<'a> Lexer<'a> {
                     }
                 }
             }
+
+            match token.clone() {
+                Some(token_type) => {
+                    if let TokenType::Token(t) = token_type.clone() {
+                        if t.get_tag() == ERR {
+                            continue;
+                        }
+                    }
+
+                    return token_type;
+                },
+                None => {
+                    self.token = None;
+                }
+            }
+            // 否则继续扫描，直到结束
         }
 
         if token == None {

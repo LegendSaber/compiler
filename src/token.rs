@@ -38,6 +38,10 @@ impl Token {
             tag,
         }
     }
+
+    pub(crate) fn get_tag(&self) -> Tag {
+        self.tag
+    }
 }
 
 impl TokenToString for Token {
