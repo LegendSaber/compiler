@@ -37,14 +37,15 @@ impl Scanner {
         })
     }
 
-    pub fn scan(&mut self) -> Result<char, failure::Error> {
+    pub fn scan(&mut self) -> Option<char> {
         if let Some(file) = self.file.as_mut() {
             if self.need_read {
-                self.line_len = file.read(&mut self.line[..])?;
-                // println!("line={:?}\nlen={}", self.line, self.line_len);
+                self.line_len = file.read(&mut self.line[..]).unwrap_or_else(|_| 0);
+
                 if self.line_len == 0 {     // 数据读取完毕
                     self.file = None;
-                    return Err(Error::new(ErrorKind::Other, "文件数据读取完毕").into())
+                    return None;
+                    // return Err(Error::new(ErrorKind::Other, "文件数据读取完毕").into())
                 }
                 self.need_read = false;
             }
@@ -67,10 +68,11 @@ impl Scanner {
             }
             self.last_char = ch;                // 记录上一个字符
 
-            return Ok(ch);
+            return Some(ch);
         }
 
-        Err(Error::new(ErrorKind::Other, "文件指针不存在").into())
+        return None;
+        // Err(Error::new(ErrorKind::Other, "文件指针不存在").into())
     }
 
     pub fn file_name(&self) -> String {

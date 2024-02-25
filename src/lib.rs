@@ -1,4 +1,8 @@
 mod scanner;
+mod common;
+mod token;
+mod keywords;
+mod lexer;
 
 use failure;
 
