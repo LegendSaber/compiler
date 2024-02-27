@@ -71,6 +71,9 @@ impl<'a> Lexer<'a> {
                 while (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_' {
                     name.push(ch);              // 记录字符
                     self.scan(None);
+                    if let None = self.ch {
+                        break;
+                    }
                     ch = self.ch.unwrap();
                 }
 
@@ -124,64 +127,95 @@ impl<'a> Lexer<'a> {
                 }
 
                 // 最终字符串
-                if token == None {
+                if let None = token {
                     token = Some(TokenType::Str(Str::new(str)));
                 }
             } else if ch >= '0' && ch <= '9' {  // 数字
-                let mut val: i32 = 0;
+                let mut val: isize = 0;
 
                 if ch != '0' {  // 10进制
                     while ch > '0' && ch < '9' {
                         val = val * 10 + ch as i32 - '0' as i32;
                         self.scan(None);
+                        if let None = self.ch {
+                            break;
+                        }
                         ch = self.ch.unwrap();
                     }
                 } else {
                     self.scan(None);
-                    ch = self.ch.unwrap();
-                    if ch == 'x' {      // 16进制
-                        self.scan(None);
+                    if let None = self.ch {
                         ch = self.ch.unwrap();
-                        if (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F') || (ch >= 'a' && ch <= 'f') {
-                            while (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F') || (ch >= 'a' && ch <= 'f') {
-                                val = val * 16 + ch as i32;
-                                if ch >= '0' && ch <= '9' {
-                                    val -= '0' as i32;
-                                } else if ch >= 'A' && ch <= 'F' {
-                                    val += 10 - 'A' as i32;
-                                } else if ch >= 'a' && ch <= 'f' {
-                                    val += 10 - 'a' as i32;
-                                }
-                                self.scan(None);
-                                ch = self.ch.unwrap();
-                            }
-                        } else {
-                            lex_error(self.scanner, NUM_HEX_TYPE as usize);
-                            token = Some(TokenType::Token(Token::new(ERR)));
-                        }
-                    } else if ch == 'b' {       // 二进制
-                        self.scan(None);
-                        if ch >= '0' && ch <= '1' {
-                            while ch >= '0' && ch <= '1' {
-                                val = val * 2 + ch as i32 - '0' as i32;
-                                self.scan(None);
-                                ch = self.ch.unwrap();
-                            }
-                        } else {
-                            lex_error(self.scanner, NUM_BIN_TYPE as usize);
-                            token = Some(TokenType::Token(Token::new(ERR)));
-                        }
-                    } else if ch >= '0' && ch <= '7' {
-                        while ch >= '0' && ch <= '7' {
-                            val = val * 8 + ch as i32 - '0' as i32;
+                        if ch == 'x' {      // 16进制
                             self.scan(None);
-                            ch = self.ch.unwrap();
+                            match self.ch {
+                                Some(c) => {
+                                    ch = c;
+                                    if (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F') || (ch >= 'a' && ch <= 'f') {
+                                        while (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'F') || (ch >= 'a' && ch <= 'f') {
+                                            val = val * 16 + ch as isize;
+                                            if ch >= '0' && ch <= '9' {
+                                                val -= '0' as isize;
+                                            } else if ch >= 'A' && ch <= 'F' {
+                                                val += 10 - 'A' as isize;
+                                            } else if ch >= 'a' && ch <= 'f' {
+                                                val += 10 - 'a' as isize;
+                                            }
+                                            self.scan(None);
+                                            if let None = self.ch {
+                                                break;
+                                            }
+                                            ch = self.ch.unwrap();
+                                        }
+                                    } else {
+                                        lex_error(self.scanner, NUM_HEX_TYPE as usize);
+                                        token = Some(TokenType::Token(Token::new(ERR)));
+                                    }
+                                },
+                                None => {
+                                    lex_error(self.scanner, NUM_HEX_TYPE as usize);
+                                    token = Some(TokenType::Token(Token::new(ERR)));
+                                }
+                            }
+                        } else if ch == 'b' {       // 二进制
+                            self.scan(None);
+                            match self.ch {
+                                Some(c) => {
+                                    ch = c;
+                                    if ch >= '0' && ch <= '1' {
+                                        while ch >= '0' && ch <= '1' {
+                                            val = val * 2 + ch as isize - '0' as isize;
+                                            self.scan(None);
+                                            if let None = self.ch {
+                                                break;
+                                            }
+                                            ch = self.ch.unwrap();
+                                        }
+                                    } else {
+                                        lex_error(self.scanner, NUM_BIN_TYPE as usize);
+                                        token = Some(TokenType::Token(Token::new(ERR)));
+                                    }
+                                },
+                                None => {
+                                    lex_error(self.scanner, NUM_BIN_TYPE as usize);
+                                    token = Some(TokenType::Token(Token::new(ERR)));
+                                }
+                            }
+                        } else if ch >= '0' && ch <= '7' {
+                            while ch >= '0' && ch <= '7' {
+                                val = val * 8 + ch as isize - '0' as isize;
+                                self.scan(None);
+                                if let None = self.ch {
+                                    break;
+                                }
+                                ch = self.ch.unwrap();
+                            }
                         }
                     }
                 }
 
                 // 最终数字
-                if token == None {
+                if let None = token {
                     token = Some(TokenType::Num(Num::new(val)));
                 }
             } else if ch == '\'' {  // 字符
@@ -231,7 +265,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                if token == None {
+                if let None = token {
                     if self.scan(Some('\'')) {
                         token = Some(TokenType::Char(Char::new(c)));
                     } else {
@@ -263,7 +297,6 @@ impl<'a> Lexer<'a> {
                         } else {
                             token = Some(TokenType::Token(Token::new(INC)));
                         }
-
                     },
                     '-' => {
                         if self.scan(Some('-')) {
@@ -389,24 +422,25 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            match token.clone() {
-                Some(token_type) => {
-                    if let TokenType::Token(t) = token_type.clone() {
-                        if t.get_tag() == ERR {
-                            continue;
-                        }
-                    }
+            self.token = token.clone();
 
-                    return token_type;
-                },
-                None => {
-                    self.token = None;
-                }
+            // 有效，则返回token
+            if let Some(token_type) = token.clone() {
+               match token_type.clone() {
+                   TokenType::Token(t) => {
+                        if t.get_tag() != ERR {
+                            return token_type;
+                        }
+                   },
+                   _ => {
+                       return token_type;
+                   }
+               }
             }
             // 否则继续扫描，直到结束
         }
 
-        if token == None {
+        if let None = token {
             token = Some(TokenType::Token(Token::new(END)));
         }
         self.token = token.clone();

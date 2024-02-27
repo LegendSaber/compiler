@@ -95,11 +95,11 @@ impl TokenToString for Str {
 #[derive(Clone, PartialEq)]
 pub struct Num {
     token: Token,
-    val: i32,
+    val: isize,
 }
 
 impl Num {
-    pub(crate) fn new(v: i32) -> Self {
+    pub(crate) fn new(v: isize) -> Self {
         Num {
             token: Token::new(NUM),
             val: v,
