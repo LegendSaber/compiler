@@ -99,15 +99,15 @@ mod tests {
 
         for c in test_str.chars() {
             let ch = scanner.scan();
-            if let Err(_) = ch {
+            if let None = ch {
                 assert!(false);
                 break;
             }
             assert_eq!(ch.unwrap(), c);
         }
 
-        if let Ok(_) = scanner.scan() {
-            assert!(false)
+        if let None = scanner.scan() {
+            assert!(true)
         }
     }
 }

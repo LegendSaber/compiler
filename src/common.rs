@@ -1,7 +1,7 @@
 
 
 // 词法记号标签
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Tag {
     ERR,                                 // 错误，异常
     END,                                 // 文件结束标记

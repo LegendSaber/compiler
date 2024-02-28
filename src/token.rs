@@ -27,7 +27,7 @@ trait TokenToString {
     fn to_string(&self) -> String;
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Token {
     tag: Tag,
 }
@@ -50,7 +50,7 @@ impl TokenToString for Token {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Id {
     token: Token,
     name:  String,
@@ -71,7 +71,7 @@ impl TokenToString for Id {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Str {
     token: Token,
     str: String,
@@ -92,7 +92,7 @@ impl TokenToString for Str {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Num {
     token: Token,
     val: isize,
@@ -113,7 +113,7 @@ impl TokenToString for Num {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Char {
     token: Token,
     ch:    char,
@@ -134,7 +134,7 @@ impl TokenToString for Char {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum TokenType {
     Token(Token),
     Id(Id),

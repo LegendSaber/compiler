@@ -1,0 +1,37 @@
+
+int val_name
+
+add
+
+char
+
+func_tests
+
++-*/
+
+123
+
+0x10
+
+// abcdedffadasd
+
+# 1223121313
+
+/*
+tesars
+fadzx
+czxczc
+xzczxc
+*/
+
+0b11
+
+'a'
+
+"str1"
+
+'B'
+
+"str2"
+
+
