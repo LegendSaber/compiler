@@ -142,3 +142,17 @@ pub enum TokenType {
     Num(Num),
     Char(Char),
 }
+
+impl TokenType {
+    pub(crate) fn get_tag(&self) -> Tag {
+        let tag =  match self {
+                            TokenType::Token(t) => t.get_tag(),
+                            TokenType::Id(id) => id.token.get_tag(),
+                            TokenType::Str(str) => str.token.get_tag(),
+                            TokenType::Num(num) => num.token.get_tag(),
+                            TokenType::Char(c) => c.token.get_tag()
+                        };
+
+        tag
+    }
+}

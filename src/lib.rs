@@ -3,6 +3,7 @@ mod common;
 mod token;
 mod keywords;
 mod lexer;
+mod parser;
 
 use failure;
 
