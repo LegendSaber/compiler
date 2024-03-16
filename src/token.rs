@@ -155,4 +155,18 @@ impl TokenType {
 
         tag
     }
+
+    pub(crate) fn to_string(&self) -> String {
+        return match self {
+            TokenType::Token(t) => to_string(t),
+            TokenType::Id(id) => to_string(id),
+            TokenType::Str(str) => to_string(str),
+            TokenType::Num(num) => to_string(num),
+            TokenType::Char(c) => to_string(c)
+        }
+    }
+}
+
+fn to_string(t: &dyn TokenToString) -> String {
+    t.to_string()
 }

@@ -6,17 +6,16 @@ use crate::token::{Char, Id, Num, Str, Token, TokenType};
 
 fn lex_error(scanner: &mut Scanner, code: usize) {
     // 打印词法错误
-    let lex_error_table = ["字符串丢失右引号",
-                                    "二进制数没有实体数据",
-                                    "十六进制数没有实体数据",
-                                    "字符丢失右单引号",
-                                    "不支持空字符",
-                                    "错误的或运算符",
-                                    "多行注释没有正常结束",
-                                    "词法记号不存在"];
+    const LEX_ERROR_TABLE: [&str; 8] = ["字符串丢失右引号",
+                                        "二进制数没有实体数据",
+                                        "十六进制数没有实体数据",
+                                        "字符丢失右单引号",
+                                        "不支持空字符",
+                                        "错误的或运算符",
+                                        "多行注释没有正常结束",
+                                        "词法记号不存在"];
 
-    println!("{}<{}行,{}列> 词法错误 : {}.", scanner.file_name(),
-             scanner.line_num(), scanner.col_num(), lex_error_table[code]);
+    println!("{}<{}行,{}列> 词法错误 : {}.", scanner.file_name(), scanner.line_num(), scanner.col_num(), LEX_ERROR_TABLE[code]);
 }
 
 pub struct Lexer<'a> {
@@ -34,6 +33,10 @@ impl<'a> Lexer<'a> {
             token: None,
             keywords: Keywords::new(),
         }
+    }
+
+    pub(crate) fn get_scanner(&mut self) -> &mut Scanner {
+        self.scanner
     }
 
     fn scan(&mut self, need: Option<char>) -> bool {

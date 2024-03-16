@@ -4,6 +4,8 @@ mod token;
 mod keywords;
 mod lexer;
 mod parser;
+mod symtab;
+mod symbol;
 
 use failure;
 

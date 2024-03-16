@@ -1,18 +1,40 @@
-
-use crate::common::Tag;
+use crate::common::SynError::{self, LPAREN_LOST, LPAREN_WRONG, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
+use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN};
 use crate::lexer::Lexer;
-use crate::token::{Token, TokenType};
+use crate::scanner::Scanner;
+use crate::symbol::Var;
+use crate::symtab::SymTab;
+use crate::token::TokenType;
+
+fn syn_error(scanner: &mut Scanner, code: usize, t: &TokenType)
+{
+    //语法错误信息串
+    const SYN_ERROR_TABLE: [&str; 15] = ["类型", "标识符", "数组长度",
+                                         "常量", "逗号", "分号", "=",
+                                         "冒号", "while", "(", ")",
+                                         "[", "]", "{", "}"];
+
+    if code % 2 == 0 {
+        println!("{}<第{}行>语法错误 : 在 {} 之前丢失 {} .", scanner.file_name(), scanner.line_num(),
+                                                           t.to_string(), SYN_ERROR_TABLE[code / 2]);
+    } else {
+        println!("{}<第{}行>语法错误 : 在 {} 之前没有正确匹配 {} .", scanner.file_name(), scanner.line_num(),
+                                                                   t.to_string(), SYN_ERROR_TABLE[code / 2]);
+    }
+}
 
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
     look: TokenType,
+    sym_tab: &'a mut SymTab,
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn new(lexer: &'a mut Lexer<'a>, token_type: TokenType) -> Self {
+    pub(crate) fn new(lexer: &'a mut Lexer<'a>, token_type: TokenType, syz_tab: &mut SymTab) -> Self {
         Parser {
             lexer,
             look: token_type,
+            sym_tab,
         }
     }
 
@@ -30,8 +52,178 @@ impl<'a> Parser<'a> {
 
         return false;
     }
+
+    fn recovery(&mut self, cond: bool, lost: SynError, wrong: SynError) {
+        if cond {
+            syn_error(self.lexer.get_scanner(), lost as usize, &self.look);
+        } else {
+            syn_error(self.lexer.get_scanner(), wrong as usize, &self.look);
+            self.move_token();
+        }
+    }
+
+    fn init(&mut self) {
+        if self.match_tag(ASSIGN) {
+            // expr
+        }
+    }
+
+    fn analyze(&mut self) {
+        self.move_token();
+        self.program();
+    }
+
+    fn segment(&self) {
+
+    }
+
+    fn program(&mut self) {
+        if equal_tag(&self.look, END) {
+            return;
+        } else {
+            self.segment();
+            self.program();
+        }
+    }
+
+    fn block(&mut self) {
+
+    }
+
+    fn altexpr(&mut self) {
+
+    }
 }
 
 impl<'a> Parser<'a> {
 
+    fn statement(&mut self) {
+        match self.look.get_tag() {
+            KW_WHILE => self.while_stat(),
+            KW_FOR => self.for_stat(),
+            KW_DO => self.do_while_stat(),
+            KW_IF => self.if_stat(),
+            KW_SWITCH => self.switch_stat(),
+            KW_BREAK => {
+                self.move_token();
+                if !self.match_tag(SEMICON) {
+                    self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                }
+            },
+            KW_CONTINUE => {
+                self.move_token();
+                if !self.match_tag(SEMICON) {
+                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                }
+            },
+            KW_RETURN => {
+                self.move_token();
+                if !self.match_tag(SEMICON) {
+                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                }
+            },
+            _ => {
+                if !self.match_tag(SEMICON) {
+                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                }
+            }
+        }
+    }
+
+    fn while_stat(&mut self) {
+
+        self.sym_tab.enter();
+        self.match_tag(KW_WHILE);
+        if !self.match_tag(LPAREN) {
+            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), TYPE_LOST, TYPE_WRONG);
+        }
+
+        self.altexpr();
+
+        if !self.match_tag(RPAREN) {
+            self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST, RPAREN_WRONG);
+        }
+
+        // block
+        if equal_tag(&self.look, LBRACE) {
+            self.block();
+        }
+
+        self.sym_tab.leave();
+    }
+
+    fn for_stat(&mut self) {
+
+    }
+
+    fn do_while_stat(&mut self) {
+        self.sym_tab.enter();
+        self.match_tag(KW_DO);
+        self.block();
+        if !self.match_tag(KW_WHILE) {
+            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LPAREN_LOST, LPAREN_WRONG);
+        }
+        if !self.match_tag(LPAREN) {
+            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LPAREN_LOST, LPAREN_WRONG);
+        }
+
+        self.sym_tab.leave();
+        self.altexpr();
+
+        if !self.match_tag(RPAREN) {
+            self.recovery(equal_tag(&self.look, SEMICON), RPAREN_LOST, RPAREN_WRONG);
+        }
+        if !self.match_tag(SEMICON) {
+            self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+        }
+    }
+
+    fn if_stat(&mut self) {
+
+    }
+
+    fn switch_stat(&mut self) {
+
+    }
+}
+
+impl<'a> Parser<'a> {
+
+    fn init(&self, ext: bool, t: Tag, ptr: bool, name: String) -> Box<Var>{
+        let init_val: Box<Var>;
+
+        if self.match_tag(ASSIGN) {
+            init_val = ;
+        }
+
+        return Box<Var::new()>;
+    }
+
+    fn varrdef(ext: bool, t: Tag, ptr: bool, name: String) {
+
+    }
+
+    fn defdata(ext: bool, t: Tag) -> *Var {
+
+    }
+}
+
+fn statement_first(look: &TokenType) -> bool {
+    expr_first(look) || equal_tag(look, SEMICON) || equal_tag(look, KW_WHILE) || equal_tag(look, KW_FOR) ||
+    equal_tag(look, KW_DO) || equal_tag(look, KW_IF) || equal_tag(look, KW_SWITCH) || equal_tag(look, KW_RETURN) ||
+    equal_tag(look, KW_BREAK) || equal_tag(look, KW_CONTINUE)
+}
+
+fn type_first(look: &TokenType) -> bool {
+    equal_tag(look, KW_INT) || equal_tag(look, KW_CHAR) || equal_tag(look, KW_VOID)
+}
+
+fn expr_first(look: &TokenType) -> bool {
+
+    equal_tag(look, LPAREN) || equal_tag(look, NUM) || equal_tag(look, CH) || equal_tag(look, STR) || equal_tag(look, ID) || equal_tag(look, NOT)
+        || equal_tag(look, SUB) || equal_tag(look, LEA) || equal_tag(look, MUL) || equal_tag(look, INC) || equal_tag(look, DEC)
+}
+
+fn equal_tag(look: &TokenType, tag: Tag) -> bool {
+    look.get_tag() == tag
 }

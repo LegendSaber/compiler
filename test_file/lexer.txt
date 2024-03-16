@@ -28,7 +28,7 @@ xzczxc
 
 'a'
 
-"str1"
+"str1";
 
 'B'
 
