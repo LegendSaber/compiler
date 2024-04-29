@@ -1,5 +1,5 @@
-use crate::common::SynError::{self, LPAREN_LOST, LPAREN_WRONG, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
-use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN};
+use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, LPAREN_LOST, LPAREN_WRONG, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
+use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
 use crate::symbol::Var;
@@ -26,11 +26,11 @@ fn syn_error(scanner: &mut Scanner, code: usize, t: &TokenType)
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
     look: TokenType,
-    sym_tab: &'a mut SymTab,
+    sym_tab: &'a mut SymTab<'a>,
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn new(lexer: &'a mut Lexer<'a>, token_type: TokenType, syz_tab: &mut SymTab) -> Self {
+    pub(crate) fn new(lexer: &'a mut Lexer<'a>, token_type: TokenType, sym_tab: &mut SymTab) -> Self {
         Parser {
             lexer,
             look: token_type,
@@ -131,8 +131,8 @@ impl<'a> Parser<'a> {
     }
 
     fn while_stat(&mut self) {
-
         self.sym_tab.enter();
+
         self.match_tag(KW_WHILE);
         if !self.match_tag(LPAREN) {
             self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), TYPE_LOST, TYPE_WRONG);
@@ -157,7 +157,9 @@ impl<'a> Parser<'a> {
     }
 
     fn do_while_stat(&mut self) {
+        // 进入do作用域
         self.sym_tab.enter();
+
         self.match_tag(KW_DO);
         self.block();
         if !self.match_tag(KW_WHILE) {
@@ -167,7 +169,9 @@ impl<'a> Parser<'a> {
             self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LPAREN_LOST, LPAREN_WRONG);
         }
 
+        // 离开do作用域
         self.sym_tab.leave();
+
         self.altexpr();
 
         if !self.match_tag(RPAREN) {
@@ -179,24 +183,64 @@ impl<'a> Parser<'a> {
     }
 
     fn if_stat(&mut self) {
+        self.sym_tab.enter();
 
+        if self.match_tag(KW_IF) {
+            if !self.match_tag(LPAREN) {
+                self.recovery(expr_first(&self.look), LPAREN_LOST, LPAREN_WRONG);
+            }
+
+            self.altexpr();
+
+            if !self.match_tag(RPAREN) {
+                self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST,RPAREN_WRONG);
+            }
+        }
+
+        self.sym_tab.leave();
+    }
+
+    fn else_stat(&mut self) {
+        if self.match_tag(KW_ELSE) {
+            self.sym_tab.enter();
+
+            if equal_tag(&self.look, LBRACE) {
+                self.block();
+            } else {
+                self.statement();
+            }
+
+            self.sym_tab.leave();
+        }
     }
 
     fn switch_stat(&mut self) {
 
     }
+
+    fn case_stat(&mut self) {
+        if self.match_tag(KW_CASE) {
+
+        } else if self.match_tag(KW_DEFAULT) {
+            if !self.match_tag(COLON) {
+                self.recovery(type_first(&self.look) || statement_first(&self.look), COLON_LOST, COLON_WRONG);
+            }
+            self.sym_tab.enter();
+            // subprogram
+            self.sym_tab.leave();
+        }
+    }
 }
 
 impl<'a> Parser<'a> {
 
-    fn init(&self, ext: bool, t: Tag, ptr: bool, name: String) -> Box<Var>{
-        let init_val: Box<Var>;
-
+    fn init(&self, ext: bool, t: Tag, ptr: bool, name: String) -> &Var{
+       let init_val:Option<Var> = None;
         if self.match_tag(ASSIGN) {
-            init_val = ;
+
         }
 
-        return Box<Var::new()>;
+
     }
 
     fn varrdef(ext: bool, t: Tag, ptr: bool, name: String) {
@@ -204,6 +248,34 @@ impl<'a> Parser<'a> {
     }
 
     fn defdata(ext: bool, t: Tag) -> *Var {
+
+    }
+
+    fn deflist(&mut self, ext: bool, t: Tag) {
+
+    }
+
+    /*
+	<idtail>			->	<varrdef><deflist>|lparen <para> rparen <funtail>
+    */
+    fn idtail(&mut self, ext: bool, t: Tag, name: String) {
+
+        if self.match_tag(LPAREN) {     // 函数
+            // 进入作用域
+            self.sym_tab.enter();
+
+            self.para();
+            if !self.match_tag(RPAREN) {
+                self.recovery(equal_tag(&self.look, LBRACK) || equal_tag(&self.look, SEMICON), RPAREN_LOST, RPAREN_WRONG);
+            }
+            // 离开作用域
+            self.sym_tab.leave();
+        } else {
+            self.deflist(ext, t);
+        }
+    }
+
+    fn para(&mut self) {
 
     }
 }
