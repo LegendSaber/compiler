@@ -105,6 +105,10 @@ impl Num {
             val: v,
         }
     }
+
+    pub(crate) fn get_val(&self) -> isize {
+        self.val
+    }
 }
 
 impl TokenToString for Num {

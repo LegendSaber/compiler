@@ -1,5 +1,5 @@
-use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, LBRACE_LOST, LBRACE_WRONG, LPAREN_LOST, LPAREN_WRONG, RBRACE_LOST, RBRACE_WRONG, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
-use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK};
+use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, LBRACE_LOST, LBRACE_WRONG, LPAREN_LOST, LPAREN_WRONG, NUM_LOST, NUM_WRONG, RBRACE_LOST, RBRACE_WRONG, RBRACK_LOST, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
+use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK, RBRACK, COMMA};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
 use crate::symbol::Var;
@@ -285,8 +285,8 @@ impl<'a> Parser<'a> {
 
 impl<'a> Parser<'a> {
 
-    fn init(&self, ext: bool, t: Tag, ptr: bool, name: String) -> &Var{
-       let init_val:Option<Var> = None;
+    fn init(&mut self, ext: bool, t: Tag, ptr: bool, name: String) -> Box<Var>{
+        let mut init_val:Option<Var> = None;
         if self.match_tag(ASSIGN) {
 
         }
@@ -294,11 +294,31 @@ impl<'a> Parser<'a> {
 
     }
 
-    fn varrdef(ext: bool, t: Tag, ptr: bool, name: String) {
+    fn varrdef(&mut self, ext: bool, t: Tag, ptr: bool, name: String) -> Box<Var>{
+        if self.match_tag(LBRACK) {
+            let mut len = 0;
+            if self.match_tag(NUM) {
+                if let TokenType::Num(num) = self.look.borrow() {
+                    len = num.get_val();
+                }
 
+                self.move_token();
+            } else {
+                self.recovery(equal_tag(&self.look, RBRACK), NUM_LOST, NUM_WRONG);
+            }
+
+
+            if !self.match_tag(RBRACK) {
+                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, SEMICON), RBRACK_LOST, RBRACE_WRONG);
+            }
+
+            // Box::new(Var::new())
+        } else {
+            self.init(ext, t, ptr, name)
+        }
     }
 
-    fn defdata(ext: bool, t: Tag) -> *Var {
+    fn defdata(ext: bool, t: Tag) -> Box<Var> {
 
     }
 
@@ -322,6 +342,7 @@ impl<'a> Parser<'a> {
             // 离开作用域
             self.sym_tab.leave();
         } else {
+            // symtab.addVar
             self.deflist(ext, t);
         }
     }
