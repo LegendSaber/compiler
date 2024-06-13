@@ -1,4 +1,4 @@
-use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, LBRACE_LOST, LBRACE_WRONG, LPAREN_LOST, LPAREN_WRONG, NUM_LOST, NUM_WRONG, RBRACE_LOST, RBRACE_WRONG, RBRACK_LOST, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
+use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, ID_LOST, ID_WRONG, LBRACE_LOST, LBRACE_WRONG, LPAREN_LOST, LPAREN_WRONG, NUM_LOST, NUM_WRONG, RBRACE_LOST, RBRACE_WRONG, RBRACK_LOST, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
 use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK, RBRACK, COMMA};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
@@ -26,7 +26,7 @@ fn syn_error(scanner: &mut Scanner, code: usize, t: &TokenType)
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
     look: TokenType,
-    sym_tab: &'a mut SymTab<'a>,
+    sym_tab: &'a mut SymTab,
 }
 
 impl<'a> Parser<'a> {
@@ -92,6 +92,27 @@ impl<'a> Parser<'a> {
 
     fn altexpr(&mut self) {
 
+    }
+
+    fn expr(&mut self) -> Option<Box<Var>> {
+        self.assexpr()
+    }
+
+    fn assexpr(&mut self) -> Option<Box<Var>> {
+        let lval = self.orexpr();
+        self.asstail(lval)
+    }
+
+    fn asstail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
+        if self.match_tag(ASSIGN) {
+
+            // self.asstail()
+        }
+        lval
+    }
+
+    fn orexpr(&self) -> Option<Box<Var>> {
+        None
     }
 }
 
@@ -286,12 +307,13 @@ impl<'a> Parser<'a> {
 impl<'a> Parser<'a> {
 
     fn init(&mut self, ext: bool, t: Tag, ptr: bool, name: String) -> Box<Var>{
-        let mut init_val:Option<Var> = None;
+        let mut init_val: Option<Box<Var>> = None;
         if self.match_tag(ASSIGN) {
-
+            init_val = self.expr();
         }
 
-
+        // 新的变量活指针
+        Box::new(Var::new_pointer(self.sym_tab.get_scope_path(), ext, t, ptr, name, init_val))
     }
 
     fn varrdef(&mut self, ext: bool, t: Tag, ptr: bool, name: String) -> Box<Var>{
@@ -312,14 +334,40 @@ impl<'a> Parser<'a> {
                 self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, SEMICON), RBRACK_LOST, RBRACE_WRONG);
             }
 
-            // Box::new(Var::new())
+            // 新的数组
+            Box::new(Var::new_array(self.sym_tab.get_scope_path(), ext, t, name, len))
         } else {
             self.init(ext, t, ptr, name)
         }
     }
 
-    fn defdata(ext: bool, t: Tag) -> Box<Var> {
+    /*
+	<defdata>			->	ident <varrdef>|mul ident <init>
+    */
+    fn defdata(&mut self, ext: bool, t: Tag) -> Box<Var> {
+        let mut name = String::new();
 
+        if equal_tag(&self.look, ID) {
+            if let TokenType::Id(id) = self.look.borrow() {
+                name = id.get_name();
+                self.move_token();
+            }
+            self.varrdef(ext, t, false, name)
+        } else if self.match_tag(MUL) {
+            if equal_tag(&self.look, ID) {
+                if let TokenType::Id(id) = self.look.borrow() {
+                    name = id.get_name();
+                    self.move_token();
+                }
+            } else {
+                self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN), ID_LOST, ID_WRONG);
+            }
+            self.init(ext, t, true, name)
+        } else {
+            self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN) || equal_tag(&self.look, LBRACK), ID_LOST, ID_WRONG);
+
+            self.varrdef(ext, t, false, name)
+        }
     }
 
     fn deflist(&mut self, ext: bool, t: Tag) {

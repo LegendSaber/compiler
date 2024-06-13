@@ -63,6 +63,10 @@ impl Id {
             name: n,
         }
     }
+
+    pub(crate) fn get_name(&self) -> String {
+        self.name.clone()
+    }
 }
 
 impl TokenToString for Id {
@@ -83,6 +87,10 @@ impl Str {
             token: Token::new(STR),
             str: s,
         }
+    }
+
+    pub(crate) fn get_str(&self) -> String {
+        self.str.clone()
     }
 }
 
@@ -129,6 +137,10 @@ impl Char {
             token: Token::new(CH),
             ch: c,
         }
+    }
+
+    pub(crate) fn get_ch(&self) -> char {
+        self.ch
     }
 }
 
