@@ -4,7 +4,7 @@ use crate::common::SemError::VOID_VAR;
 use crate::common::Tag::{KW_CHAR, KW_INT, KW_VOID};
 use crate::token::TokenType;
 
-fn sem_error(code: usize, name: &str) {
+pub(crate)  fn sem_error(code: usize, name: &str) {
     //语义错误信息串
     const SEM_ERROR_TABLE: [&str; 21] = ["变量重定义",										//附加名称信息
                                          "函数重定义",
@@ -30,6 +30,7 @@ fn sem_error(code: usize, name: &str) {
     println!("语义错误: {} {}.", name, SEM_ERROR_TABLE[code]);
 }
 
+#[derive!(Clone)]
 pub struct Var {
     // 特殊标记
     literal: bool,           // 是否是常量
@@ -193,56 +194,56 @@ impl Var {
 
 impl Var {
 
-    fn set_char_value(&mut self, char_value: char) {
+    pub(crate) fn set_char_value(&mut self, char_value: char) {
         self.char_value = char_value;
     }
 
-    fn set_int_val(&mut self, int_val: isize) {
+    pub(crate) fn set_int_val(&mut self, int_val: isize) {
         self.int_val = int_val;
     }
 
-    fn set_literal(&mut self, literal: bool) {
+    pub(crate) fn set_literal(&mut self, literal: bool) {
         self.literal = literal;
     }
 
-    fn get_literal(&self) -> bool {
+    pub(crate) fn get_literal(&self) -> bool {
         self.literal
     }
 
-    fn set_left(&mut self, left: bool) {
+    pub(crate) fn set_left(&mut self, left: bool) {
         self.is_left = left;
     }
 
-    fn get_left(&self) -> bool {
+    pub(crate) fn get_left(&self) -> bool {
         self.is_left
     }
 
-    fn set_scope_path(&mut self, scope_path: Vec<i32>) {
+    pub(crate) fn set_scope_path(&mut self, scope_path: Vec<i32>) {
         self.scope_path = scope_path;
     }
 
-    fn get_scope_path(&self) -> Vec<i32> {
+    pub(crate) fn get_scope_path(&self) -> Vec<i32> {
         self.scope_path.clone()
     }
 
-    fn set_init_data(&mut self, init_data: Option<Box<Var>>) {
+    pub(crate) fn set_init_data(&mut self, init_data: Option<Box<Var>>) {
         self.init_data = init_data
     }
 
-    fn get_init_data(&self) -> Option<Box<Var>>{
+    pub(crate) fn get_init_data(&self) -> Option<Box<Var>>{
         self.init_data.clone()
     }
 
-    fn set_extern(&mut self, ext: bool) {
+    pub(crate) fn set_extern(&mut self, ext: bool) {
         self.externed = ext;
         self.size = 0;
     }
 
-    fn get_extern(&self) -> bool {
+    pub(crate) fn get_extern(&self) -> bool {
         self.externed
     }
 
-    fn set_type(&mut self, t: Tag) {
+    pub(crate) fn set_type(&mut self, t: Tag) {
         self.var_type = t;
         if self.var_type == KW_VOID {
             sem_error(VOID_VAR as usize, "");     // 不允许void变量
@@ -256,11 +257,11 @@ impl Var {
         }
     }
 
-    fn get_type(&self) -> Tag {
+    pub(crate) fn get_type(&self) -> Tag {
         self.var_type
     }
 
-    fn set_ptr(&mut self, ptr: bool) {
+    pub(crate) fn set_ptr(&mut self, ptr: bool) {
         if ptr {
             self.is_ptr = true;
             if !self.externed {
@@ -269,19 +270,19 @@ impl Var {
         }
     }
 
-    fn get_ptr(&self) -> bool {
+    pub(crate) fn get_ptr(&self) -> bool {
         self.is_ptr
     }
 
-    fn set_name(&mut self, n: String) {
+    pub(crate) fn set_name(&mut self, n: String) {
         self.name = n;
     }
 
-    fn get_name(&self) -> String {
+    pub(crate) fn get_name(&self) -> String {
         self.name.clone()
     }
 
-    fn set_array(&mut self, len: isize) {
+    pub(crate) fn set_array(&mut self, len: isize) {
         if len <= 0 {
             sem_error(SemError::ARRAY_LEN_INVALID as usize, self.name.borrow());
         } else {

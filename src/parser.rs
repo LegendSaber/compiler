@@ -1,10 +1,10 @@
-use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, ID_LOST, ID_WRONG, LBRACE_LOST, LBRACE_WRONG, LPAREN_LOST, LPAREN_WRONG, NUM_LOST, NUM_WRONG, RBRACE_LOST, RBRACE_WRONG, RBRACK_LOST, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
-use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK, RBRACK, COMMA};
+use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, ID_LOST, ID_WRONG, LBRACE_LOST, LBRACE_WRONG, LITERAL_LOST, LITERAL_WRONG, LPAREN_LOST, LPAREN_WRONG, NUM_LOST, NUM_WRONG, RBRACE_LOST, RBRACE_WRONG, RBRACK_LOST, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
+use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK, RBRACK, COMMA, OR, AND, GT, GE, LT, ADD, NEQU, EQU, LE, DIV};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
 use crate::symbol::Var;
 use crate::symtab::SymTab;
-use crate::token::TokenType;
+use crate::token::{Token, TokenType};
 
 fn syn_error(scanner: &mut Scanner, code: usize, t: &TokenType)
 {
@@ -30,11 +30,28 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn new(lexer: &'a mut Lexer<'a>, token_type: TokenType, sym_tab: &mut SymTab) -> Self {
+    pub(crate) fn new(lexer: &'a mut Lexer<'a>, token_type: TokenType, sym_tab: &'a mut SymTab) -> Self {
         Parser {
             lexer,
             look: token_type,
             sym_tab,
+        }
+    }
+
+    // <literal>			->	number|string|chara
+    pub(crate) fn literal(&mut self) -> Option<Box<Var>> {
+        if equal_tag(&self.look, NUM) || equal_tag(&self.look, STR) || equal_tag(&self.look, CH) {
+            let v = Box::new(Var::new_const(&self.look));
+            if equal_tag(&self.look, STR) {
+                self.sym_tab.add_str(v.clone());        // 字符串常量记录
+            } else {
+                self.sym_tab.add_var(v.clone());        // 其他常量记录
+            }
+
+            Some(v)
+        } else {
+            self.recovery(rval_opr(&self.look), LITERAL_LOST, LITERAL_WRONG);
+            None
         }
     }
 
@@ -59,12 +76,6 @@ impl<'a> Parser<'a> {
         } else {
             syn_error(self.lexer.get_scanner(), wrong as usize, &self.look);
             self.move_token();
-        }
-    }
-
-    fn init(&mut self) {
-        if self.match_tag(ASSIGN) {
-            // expr
         }
     }
 
@@ -400,20 +411,34 @@ impl<'a> Parser<'a> {
     }
 }
 
+// 语句
 fn statement_first(look: &TokenType) -> bool {
     expr_first(look) || equal_tag(look, SEMICON) || equal_tag(look, KW_WHILE) || equal_tag(look, KW_FOR) ||
     equal_tag(look, KW_DO) || equal_tag(look, KW_IF) || equal_tag(look, KW_SWITCH) || equal_tag(look, KW_RETURN) ||
     equal_tag(look, KW_BREAK) || equal_tag(look, KW_CONTINUE)
 }
 
+// 类型
 fn type_first(look: &TokenType) -> bool {
     equal_tag(look, KW_INT) || equal_tag(look, KW_CHAR) || equal_tag(look, KW_VOID)
 }
 
+// 表达式
 fn expr_first(look: &TokenType) -> bool {
 
     equal_tag(look, LPAREN) || equal_tag(look, NUM) || equal_tag(look, CH) || equal_tag(look, STR) || equal_tag(look, ID) || equal_tag(look, NOT)
         || equal_tag(look, SUB) || equal_tag(look, LEA) || equal_tag(look, MUL) || equal_tag(look, INC) || equal_tag(look, DEC)
+}
+
+// 左值运算
+fn lval_opr(look: &TokenType) -> bool {
+    equal_tag(look, ASSIGN) || equal_tag(look, OR) || equal_tag(look, AND) || equal_tag(look, GT) || equal_tag(look, GE) || equal_tag(look, LT)
+        || equal_tag(look, LE) || equal_tag(look, EQU) || equal_tag(look, NEQU) || equal_tag(look, ADD) || equal_tag(look, SUB) || equal_tag(look, MUL) || equal_tag(look, DIV)
+}
+
+fn rval_opr(look: &TokenType) -> bool {
+    equal_tag(look, OR) || equal_tag(look, AND) || equal_tag(look, GT) || equal_tag(look, GE) || equal_tag(look, LT)
+        || equal_tag(look, LE) || equal_tag(look, EQU) || equal_tag(look, NEQU) || equal_tag(look, ADD) || equal_tag(look, SUB) || equal_tag(look, MUL) || equal_tag(look, DIV)
 }
 
 fn equal_tag(look: &TokenType, tag: Tag) -> bool {

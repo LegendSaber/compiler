@@ -1,4 +1,6 @@
-use crate::symbol::Fun;
+use std::collections::HashMap;
+use crate::common::SemError::{VAR_RE_DEF, VAR_UN_DEC};
+use crate::symbol::{Fun, Var, sem_error};
 
 pub struct SymTab {
     // 声明记录顺序
@@ -6,7 +8,8 @@ pub struct SymTab {
     fun_list: Vec<String>,  // 记录函数的添加顺序
 
     // 内部数据结构
-    // var_tab: HashMap<String, Vec<>>,
+    var_tab: HashMap<String, Vec<Box<Var>>>,
+    str_tab: HashMap<String, Box<Var>>,
 
     // 辅助分析数据记录
     cur_fun: Option<Box<Fun>>,       // 当前分析的函数
@@ -40,5 +43,63 @@ impl SymTab {
 
     pub(crate) fn get_scope_path(&self) -> Vec<i32>{
         self.scope_path.clone()
+    }
+
+    // 添加一个变量到符号表
+    pub(crate) fn add_var(&mut self, var: Box<Var>) {
+        let name = var.get_name();
+        if self.var_tab.contains_key(name.borrow()) {
+            // 判断同名变量是否不在一个作用域
+            let var_list = self.var_tab.get_mut(name.borrow()).unwrap();
+            let mut is_exit = false;
+
+            for v in var_list {
+                if var.get_scope_path() == v.get_scope_path() {
+                    is_exit = true;
+
+                    break;
+                }
+            }
+
+            if !is_exit || name[0] == '<' {
+                var_list.push(var);
+            } else {
+                sem_error(VAR_RE_DEF as usize, name.borrow());
+            }
+        } else {
+            self.var_tab.insert(name.clone(), vec![]);
+            self.var_tab[name.clone()].push(var);
+            self.var_list.push(name.clone());
+        }
+    }
+
+    pub(crate) fn add_str(&mut self, v: Box<Var>) {
+        self.str_tab.insert(v.get_name(), v);
+    }
+
+    pub(crate) fn get_var(&self, name: String) -> Option<Box<Var>> {
+        let mut select: Option<Box<Var>> = None;
+
+        if self.var_tab.contains_key(name.borrow()) {
+            let var_list = self.var_tab.get(name.borrow()).unwrap();
+            let path_len = self.scope_path.len();
+            let mut max_len = 0;
+
+            for &v in var_list {
+                let len = v.get_scope_path().len();
+                if len <= path_len && v.get_scope_path()[len - 1] == self.scope_path[len - 1] {
+                    if len > max_len {
+                        max_len = len;
+                        select = Some(v.clone());
+                    }
+                }
+            }
+        }
+
+        if let None = select {
+            sem_error(VAR_UN_DEC as usize, name.borrow());    // 变量未声明
+        }
+
+        select
     }
 }
