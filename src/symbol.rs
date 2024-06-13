@@ -1,5 +1,4 @@
 use crate::common::Tag;
-use std::vec;
 
 union InitValue {
     int_val: i32,

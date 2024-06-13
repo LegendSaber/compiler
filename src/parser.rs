@@ -1,4 +1,4 @@
-use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, LPAREN_LOST, LPAREN_WRONG, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
+use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, LBRACE_LOST, LBRACE_WRONG, LPAREN_LOST, LPAREN_WRONG, RBRACE_LOST, RBRACE_WRONG, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
 use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
@@ -153,6 +153,37 @@ impl<'a> Parser<'a> {
     }
 
     fn for_stat(&mut self) {
+        self.sym_tab.enter();
+
+        if self.match_tag(KW_FOR) {
+            if !self.match_tag(LPAREN) {
+                self.recovery(type_first(&self.look) || expr_first(&self.look), LPAREN_LOST, LPAREN_WRONG);
+            }
+
+            self.for_init();
+
+            if !self.match_tag(SEMICON) {
+                self.recovery(expr_first(&self.look), SEMICON_LOST, SEMICON_WRONG);
+            }
+
+            self.altexpr();
+
+            if !self.match_tag(RPAREN) {
+                self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST, RPAREN_WRONG);
+            }
+
+            if equal_tag(&self.look, LBRACE) {
+                self.block();
+            } else {
+                self.statement();
+            }
+        }
+
+
+        self.sym_tab.leave();
+    }
+
+    fn for_init(&self) {
 
     }
 
@@ -215,7 +246,27 @@ impl<'a> Parser<'a> {
     }
 
     fn switch_stat(&mut self) {
+        self.sym_tab.enter();
 
+        if self.match_tag(KW_SWITCH) {
+            if !self.match_tag(LPAREN) {
+                self.recovery(expr_first(&self.look), RPAREN_LOST, RPAREN_WRONG);
+            }
+
+            if !self.match_tag(RPAREN) {
+                self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST, RPAREN_WRONG);
+            }
+
+            if !self.match_tag(LBRACE) {
+                self.recovery(equal_tag(&self.look, KW_CASE) || equal_tag(&self.look, KW_DEFAULT), LBRACE_LOST, LBRACE_WRONG);
+            }
+
+            if !self.match_tag(RBRACE) {
+                self.recovery(type_first(&self.look) || statement_first(&self.look), RBRACE_LOST, RBRACE_WRONG);
+            }
+        }
+
+        self.sym_tab.leave();
     }
 
     fn case_stat(&mut self) {
