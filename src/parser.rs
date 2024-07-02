@@ -1,8 +1,9 @@
+use std::any::Any;
 use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, ID_LOST, ID_WRONG, LBRACE_LOST, LBRACE_WRONG, LITERAL_LOST, LITERAL_WRONG, LPAREN_LOST, LPAREN_WRONG, NUM_LOST, NUM_WRONG, RBRACE_LOST, RBRACE_WRONG, RBRACK_LOST, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
 use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK, RBRACK, COMMA, OR, AND, GT, GE, LT, ADD, NEQU, EQU, LE, DIV};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
-use crate::symbol::Var;
+use crate::symbol::{Fun, Var};
 use crate::symtab::SymTab;
 use crate::token::{Token, TokenType};
 
@@ -393,21 +394,124 @@ impl<'a> Parser<'a> {
         if self.match_tag(LPAREN) {     // 函数
             // 进入作用域
             self.sym_tab.enter();
-
-            self.para();
+            let mut para_list: Vec<Box<Var>> = Vec::new();
+            self.para(&mut para_list);
             if !self.match_tag(RPAREN) {
                 self.recovery(equal_tag(&self.look, LBRACK) || equal_tag(&self.look, SEMICON), RPAREN_LOST, RPAREN_WRONG);
             }
+            let fun = Box::new(Fun::new(ext, t, name, para_list));
+            self.fun_tail(fun);
             // 离开作用域
             self.sym_tab.leave();
         } else {
-            // symtab.addVar
+            self.sym_tab.add_var(self.varrdef(ext, t, false, name));
             self.deflist(ext, t);
         }
     }
 
-    fn para(&mut self) {
+    /*
+	    <funtail>			->	<block>|semicon
+    */
+    fn fun_tail(&mut self, f: Box<Fun>) {
+        if self.match_tag(SEMICON) {    // 函数声明
+            // self.sym_tab;
+        } else {    // 函数定义
 
+            self.block();
+        }
+    }
+
+    /*
+	    <para>				->	<type><paradata><paralist>|^
+    */
+    fn para(&mut self, para_list: &mut Vec<Box<Var>>) {
+        if !equal_tag(&self.look, RPAREN) {
+            let t  = self.para_type();
+            let v = self.para_data(t);
+
+            self.sym_tab.add_var(v.clone());
+            para_list.push(v.clone());
+            self.para_list(para_list);
+        }
+    }
+
+    /*
+	    <paralist>		->	comma<type><paradata><paralist>|^
+    */
+    fn para_list(&mut self, para_list: &mut Vec<Box<Var>>) {
+        if self.match_tag(COMMA) {  // 下一个参数
+            let t = self.para_type();
+            let v = self.para_data(t);
+            self.sym_tab.add_var(v.clone());
+            para_list.push(v.clone());
+            self.para_list(para_list);
+        }
+    }
+
+    /*
+	    <paradata>		->	mul ident|ident <paradatatail>
+    */
+    fn para_data(&mut self, t: Tag) -> Box<Var> {
+        let mut name = String::new();
+
+        return if self.match_tag(MUL) {
+            if equal_tag(&self.look, ID) {
+                if let TokenType::Id(id) = self.look.borrow() {
+                    name = id.get_name();
+                    self.move_token();
+                }
+            } else {
+                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN), ID_LOST, ID_WRONG);
+            }
+
+            Box::new(Var::new_pointer(self.sym_tab.get_scope_path(), false, t, true, name, None))
+        } else if equal_tag(&self.look, ID) {
+            if let TokenType::Id(id) = self.look.borrow() {
+                name = id.get_name();
+                self.move_token();
+            }
+            self.para_data_tail(t, name)
+        } else {
+            self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN) || equal_tag(&self.look, LBRACK), ID_LOST, ID_WRONG);
+            Box::new(Var::new_pointer(self.sym_tab.get_scope_path(), false, t, false, name, None))
+        }
+    }
+
+    /*
+	    <paradatatail>->	lbrack rbrack|lbrack num rbrack|^
+    */
+    fn para_data_tail(&mut self, t: Tag, name: String) -> Box<Var> {
+        if self.match_tag(LBRACK) {
+            let mut len = 1;
+            if equal_tag(&self.look, NUM) {
+                if let TokenType::Num(num) = self.look.borrow() {
+                    len = num.get_val();
+                }
+                self.move_token();
+            }   // 可以没有指定长度
+            if !self.match_tag(RBRACK) {
+                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN), RBRACK_LOST, RBRACE_WRONG);
+            }
+            return Box::new(Var::new_array(self.sym_tab.get_scope_path(), false, t, name, len));
+        }
+
+        Box::new(Var::new_pointer(self.sym_tab.get_scope_path(), false, t, false, name, None))
+    }
+
+    /*
+	    <type>				->	rsv_int|rsv_char|rsv_bool|rsv_void
+    */
+    fn para_type(&mut self) -> Tag {
+        let mut tmp: Tag = KW_INT;  // 默认类型
+
+        if type_first(&self.look) {
+            tmp = self.look.get_tag();
+            self.move_token();
+        } else {
+            self.recovery(equal_tag(&self.look, ID) || equal_tag(&self.look, MUL), TYPE_LOST, TYPE_WRONG);
+        }
+
+        tmp
     }
 }
 

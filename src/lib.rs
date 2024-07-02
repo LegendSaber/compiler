@@ -6,6 +6,7 @@ mod lexer;
 mod parser;
 mod symtab;
 mod symbol;
+mod plat;
 
 use failure;
 

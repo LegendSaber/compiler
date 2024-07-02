@@ -12,7 +12,7 @@ pub struct SymTab {
     str_tab: HashMap<String, Box<Var>>,
 
     // 辅助分析数据记录
-    cur_fun: Option<Box<Fun>>,       // 当前分析的函数
+    cur_fun: Option<Box<Fun>>,          // 当前分析的函数
     scope_id: i32,                      // 作用域的唯一编号
     scope_path: Vec<i32>,               // 动态记录作用域的路径，全局为0,0 1 2-第一个函数的第一个局部块
 }

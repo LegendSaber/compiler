@@ -1,4 +1,4 @@
-use std::collections::hash_set::Union;
+use crate::plat::STACK_BASE;
 use crate::common::{SemError, Tag};
 use crate::common::SemError::VOID_VAR;
 use crate::common::Tag::{KW_CHAR, KW_INT, KW_VOID};
@@ -30,7 +30,7 @@ pub(crate)  fn sem_error(code: usize, name: &str) {
     println!("语义错误: {} {}.", name, SEM_ERROR_TABLE[code]);
 }
 
-#[derive!(Clone)]
+#[derive(Clone)]
 pub struct Var {
     // 特殊标记
     literal: bool,           // 是否是常量
@@ -294,6 +294,14 @@ impl Var {
             }
         }
     }
+
+    pub(crate) fn set_offset(&mut self, off: isize) {
+        self.offset = off;
+    }
+
+    pub(crate) fn get_offset(&self) -> isize {
+        self.offset
+    }
 }
 
 pub struct Fun {
@@ -323,6 +331,28 @@ impl Fun {
         self.max_depth = if self.cur_esp > self.max_depth { self.cur_esp } else { self.max_depth }; // 计算最大深度
         if let Some(esp) = self.scope_esp.pop() {
             self.cur_esp -= esp;
+        }
+    }
+}
+
+impl Fun {
+    pub(crate) fn new(ext: bool, t: Tag, n: String, para_list: Vec<Box<Var>>) -> Self {
+        let mut para_list = para_list;
+        let mut arg_off = 4;
+        for i in 0..para_list.len() {
+            para_list[i].set_offset(arg_off);
+            arg_off += 4;
+        }
+
+        Fun {
+            externed: ext,
+            return_type: t,
+            name: n,
+            para_var: para_list,
+            max_depth: STACK_BASE,
+            cur_esp: STACK_BASE,
+            relocated: false,
+            scope_esp: vec![0],
         }
     }
 }
