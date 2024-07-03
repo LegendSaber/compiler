@@ -304,6 +304,7 @@ impl Var {
     }
 }
 
+#[derive(Clone)]
 pub struct Fun {
     externed: bool,                  // 声明或定义
     return_type: Tag,                // 返回类型
@@ -320,6 +321,32 @@ pub struct Fun {
 }
 
 impl Fun {
+    pub(crate) fn match_fun(&self, f: Box<Fun>) -> bool {
+        if self.name != f.get_name() {
+            return false;
+        }
+
+        if self.para_var.len() != f.para_var.len() {
+            return false;
+        }
+
+        for i in 0..self.para_var.len() {
+            if self.para_var[i].get_type() != f.para_var[i].get_type() {
+                return false;
+            }
+        }
+
+        if self.return_type != f.return_type {
+            return false;
+        }
+
+        true
+    }
+
+    pub(crate) fn define(&mut self, def: Box<Fun>) {
+        self.externed = false;
+        self.para_var = def.para_var;
+    }
 
     // 进入一个新的作用域
     pub(crate) fn enter_scope(&mut self) {
@@ -354,5 +381,21 @@ impl Fun {
             relocated: false,
             scope_esp: vec![0],
         }
+    }
+
+    pub(crate) fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub(crate) fn get_return_type(&self) -> Tag {
+        self.return_type
+    }
+
+    pub(crate) fn set_extern(&mut self, ext: bool) {
+        self.externed = ext;
+    }
+
+    pub(crate) fn get_extern(&self) -> bool {
+        self.externed
     }
 }

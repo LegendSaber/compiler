@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::common::SemError::{VAR_RE_DEF, VAR_UN_DEC};
+use crate::common::SemError::{EXTERN_FUN_DEF, FUN_DEC_ERR, FUN_RE_DEF, VAR_RE_DEF, VAR_UN_DEC};
 use crate::symbol::{Fun, Var, sem_error};
 
 pub struct SymTab {
@@ -10,6 +10,7 @@ pub struct SymTab {
     // 内部数据结构
     var_tab: HashMap<String, Vec<Box<Var>>>,
     str_tab: HashMap<String, Box<Var>>,
+    fun_tab: HashMap<String, Box<Fun>>,
 
     // 辅助分析数据记录
     cur_fun: Option<Box<Fun>>,          // 当前分析的函数
@@ -101,5 +102,62 @@ impl SymTab {
         }
 
         select
+    }
+
+    // 声明一个函数
+    pub(crate) fn dec_fun(&mut self, mut fun: Box<Fun>) {
+        fun.set_extern(true);
+
+
+        if self.fun_tab.contains_key(fun.get_name().borrow()) {
+            // 重复声明的函数，判断是否重复声明
+            let last = self.fun_tab.get(fun.get_name().borrow()).unwrap();
+            if !last.match_fun(fun) {
+                // 函数声明与定义不匹配
+                sem_error(FUN_DEC_ERR as usize, fun.get_name().borrow());
+            }
+
+        } else {
+            // 没声明，则添加函数
+            self.fun_tab.insert(fun.get_name(), fun.clone());
+            self.fun_list.push(fun.get_name());
+        }
+    }
+
+    // 定义一个函数
+    pub(crate) fn def_fun(&mut self, mut fun: Box<Fun>) {
+        let mut cur_fun = fun.clone();
+        if fun.get_extern() {   // extern不允许出现在定义
+            sem_error(EXTERN_FUN_DEF as usize, fun.get_name().borrow());
+            fun.set_extern(false);
+        }
+
+        // 没有该名字的函数
+        if !self.fun_tab.contains_key(fun.get_name().borrow()) {
+            // 添加函数
+            self.fun_tab.insert(fun.get_name(), fun);
+            self.fun_list.push(fun.get_name());
+        } else {
+            // 已经声明
+            let last = self.fun_tab.get_mut(fun.get_name().borrow()).unwrap();
+            if last.get_extern() {
+                // 之前是声明
+                if !last.match_fun(fun.clone()) {   // 匹配的声明
+                    sem_error(FUN_DEC_ERR as usize, fun.get_name().borrow());
+                }
+                last.define(fun.clone());
+            } else {
+                // 重定义
+                sem_error(FUN_RE_DEF as usize, fun.get_name().borrow());
+            }
+            // cur_fun = *last;
+        }
+
+        // self.cur_fun = Some(cur_fun);
+    }
+
+    // 结束定义一个函数
+    pub(crate) fn end_def_fun(&mut self) {
+        self.cur_fun = None;
     }
 }
