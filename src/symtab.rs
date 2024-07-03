@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::common::SemError::{EXTERN_FUN_DEF, FUN_DEC_ERR, FUN_RE_DEF, VAR_RE_DEF, VAR_UN_DEC};
+use crate::common::SemError::{ExternFunDef, FunDecErr, FunReDef, VarReDef, VarUnDec};
 use crate::symbol::{Fun, Var, sem_error};
 
 pub struct SymTab {
@@ -49,12 +49,12 @@ impl SymTab {
     // 添加一个变量到符号表
     pub(crate) fn add_var(&mut self, var: Box<Var>) {
         let name = var.get_name();
-        if self.var_tab.contains_key(name.borrow()) {
+        if self.var_tab.contains_key(&name) {
             // 判断同名变量是否不在一个作用域
-            let var_list = self.var_tab.get_mut(name.borrow()).unwrap();
+            let var_list = self.var_tab.get_mut(&name).unwrap();
             let mut is_exit = false;
 
-            for v in var_list {
+            for v in var_list.clone() {
                 if var.get_scope_path() == v.get_scope_path() {
                     is_exit = true;
 
@@ -62,14 +62,15 @@ impl SymTab {
                 }
             }
 
-            if !is_exit || name[0] == '<' {
+            if !is_exit || name.get(..1).unwrap() == "<" {
                 var_list.push(var);
             } else {
-                sem_error(VAR_RE_DEF as usize, name.borrow());
+                sem_error(VarReDef as usize, &name);
             }
         } else {
             self.var_tab.insert(name.clone(), vec![]);
-            self.var_tab[name.clone()].push(var);
+            let v = self.var_tab.get_mut(&name).unwrap();
+            v.push(var);
             self.var_list.push(name.clone());
         }
     }
@@ -81,12 +82,12 @@ impl SymTab {
     pub(crate) fn get_var(&self, name: String) -> Option<Box<Var>> {
         let mut select: Option<Box<Var>> = None;
 
-        if self.var_tab.contains_key(name.borrow()) {
-            let var_list = self.var_tab.get(name.borrow()).unwrap();
+        if self.var_tab.contains_key(&name) {
+            let var_list = self.var_tab.get(&name).unwrap();
             let path_len = self.scope_path.len();
             let mut max_len = 0;
 
-            for &v in var_list {
+            for v in var_list.clone() {
                 let len = v.get_scope_path().len();
                 if len <= path_len && v.get_scope_path()[len - 1] == self.scope_path[len - 1] {
                     if len > max_len {
@@ -98,7 +99,7 @@ impl SymTab {
         }
 
         if let None = select {
-            sem_error(VAR_UN_DEC as usize, name.borrow());    // 变量未声明
+            sem_error(VarUnDec as usize, &name);    // 变量未声明
         }
 
         select
@@ -109,12 +110,12 @@ impl SymTab {
         fun.set_extern(true);
 
 
-        if self.fun_tab.contains_key(fun.get_name().borrow()) {
+        if self.fun_tab.contains_key(&fun.get_name()) {
             // 重复声明的函数，判断是否重复声明
-            let last = self.fun_tab.get(fun.get_name().borrow()).unwrap();
-            if !last.match_fun(fun) {
+            let last = self.fun_tab.get(&fun.get_name()).unwrap();
+            if !last.match_fun(fun.clone()) {
                 // 函数声明与定义不匹配
-                sem_error(FUN_DEC_ERR as usize, fun.get_name().borrow());
+                sem_error(FunDecErr as usize, &fun.get_name());
             }
 
         } else {
@@ -128,27 +129,27 @@ impl SymTab {
     pub(crate) fn def_fun(&mut self, mut fun: Box<Fun>) {
         let mut cur_fun = fun.clone();
         if fun.get_extern() {   // extern不允许出现在定义
-            sem_error(EXTERN_FUN_DEF as usize, fun.get_name().borrow());
+            sem_error(ExternFunDef as usize, &fun.get_name());
             fun.set_extern(false);
         }
 
         // 没有该名字的函数
-        if !self.fun_tab.contains_key(fun.get_name().borrow()) {
+        if !self.fun_tab.contains_key(&fun.get_name()) {
             // 添加函数
-            self.fun_tab.insert(fun.get_name(), fun);
+            self.fun_tab.insert(fun.get_name(), fun.clone());
             self.fun_list.push(fun.get_name());
         } else {
             // 已经声明
-            let last = self.fun_tab.get_mut(fun.get_name().borrow()).unwrap();
+            let last = self.fun_tab.get_mut(&fun.get_name()).unwrap();
             if last.get_extern() {
                 // 之前是声明
                 if !last.match_fun(fun.clone()) {   // 匹配的声明
-                    sem_error(FUN_DEC_ERR as usize, fun.get_name().borrow());
+                    sem_error(FunDecErr as usize, &fun.get_name());
                 }
                 last.define(fun.clone());
             } else {
                 // 重定义
-                sem_error(FUN_RE_DEF as usize, fun.get_name().borrow());
+                sem_error(FunReDef as usize, &fun.get_name());
             }
             // cur_fun = *last;
         }

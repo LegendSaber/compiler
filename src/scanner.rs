@@ -1,6 +1,6 @@
 use failure;
 use std::fs::File;
-use std::io::{Error, ErrorKind, Read};
+use std::io::Read;
 
 const BUF_LEN: usize = 20;
 

@@ -1,4 +1,4 @@
-use crate::common::LexError::{CHAR_NO_DATA, CHAR_NO_R_QUTION, COMMENT_NO_END, NUM_BIN_TYPE, NUM_HEX_TYPE, OR_NO_PAIR, STR_NO_R_QUTION, TOKEN_NO_EXIST};
+use crate::common::LexError::{CharNoData, CharNoRQution, CommentNoEnd, NumBinType, NumHexType, OrNoPair, StrNoRQution, TokenNoExist};
 use crate::common::Tag::{self, ADD, ASSIGN, DEC, END, ERR, GE, GT, ID, INC, LE, LT, MOD, MUL, SUB, EQU, LEA, AND, NEQU, NOT, COMMA, COLON, SEMICON, LPAREN, RPAREN, LBRACK, RBRACK, LBRACE, RBRACE, DIV};
 use crate::scanner::Scanner;
 use crate::keywords::Keywords;
@@ -53,7 +53,7 @@ impl<'a> Lexer<'a> {
     }
 
     pub(crate) fn tokenize(&mut self) -> TokenType {
-        let mut token: Option<TokenType> = None;
+        let mut token: Option<TokenType>;
 
         if let None = self.ch {
             self.scan(None);
@@ -123,20 +123,20 @@ impl<'a> Lexer<'a> {
                                         };
                                     }
                                     None => {
-                                        lex_error(self.scanner, STR_NO_R_QUTION as usize);
+                                        lex_error(self.scanner, StrNoRQution as usize);
                                         token = Some(TokenType::Token(Token::new(ERR)));
                                     }
                                 }
                             } else if c == '\r'  {              // 换行
                                 self.scan(Some('\n'));          // 吃掉\n
-                                lex_error(self.scanner, STR_NO_R_QUTION as usize);
+                                lex_error(self.scanner, StrNoRQution as usize);
                                 token = Some(TokenType::Token(Token::new(ERR)));
                             } else {
                                 str.push(c);
                             }
                         },
                         None => {
-                            lex_error(self.scanner, STR_NO_R_QUTION as usize);
+                            lex_error(self.scanner, StrNoRQution as usize);
                             token = Some(TokenType::Token(Token::new(ERR)));
                             break;
                         }
@@ -185,12 +185,12 @@ impl<'a> Lexer<'a> {
                                             ch = self.ch.unwrap();
                                         }
                                     } else {
-                                        lex_error(self.scanner, NUM_HEX_TYPE as usize);
+                                        lex_error(self.scanner, NumHexType as usize);
                                         token = Some(TokenType::Token(Token::new(ERR)));
                                     }
                                 },
                                 None => {
-                                    lex_error(self.scanner, NUM_HEX_TYPE as usize);
+                                    lex_error(self.scanner, NumHexType as usize);
                                     token = Some(TokenType::Token(Token::new(ERR)));
                                 }
                             }
@@ -209,12 +209,12 @@ impl<'a> Lexer<'a> {
                                             ch = self.ch.unwrap();
                                         }
                                     } else {
-                                        lex_error(self.scanner, NUM_BIN_TYPE as usize);
+                                        lex_error(self.scanner, NumBinType as usize);
                                         token = Some(TokenType::Token(Token::new(ERR)));
                                     }
                                 },
                                 None => {
-                                    lex_error(self.scanner, NUM_BIN_TYPE as usize);
+                                    lex_error(self.scanner, NumBinType as usize);
                                     token = Some(TokenType::Token(Token::new(ERR)));
                                 }
                             }
@@ -242,11 +242,11 @@ impl<'a> Lexer<'a> {
                 match self.ch {
                     Some(ch) => {
                         if ch == '\'' {         // 没有数据
-                            lex_error(self.scanner, CHAR_NO_DATA as usize);
+                            lex_error(self.scanner, CharNoData as usize);
                             token = Some(TokenType::Token(Token::new(ERR)));
                         } else if ch == '\r' {  // 换行
                             self.scan(None);
-                            lex_error(self.scanner, CHAR_NO_R_QUTION as usize);
+                            lex_error(self.scanner, CharNoRQution as usize);
                             token = Some(TokenType::Token(Token::new(ERR)));
                         } else if ch == '\\' {  // 转义
                             self.scan(None);
@@ -265,12 +265,12 @@ impl<'a> Lexer<'a> {
                                         c = '\'';
                                     } else if ch == '\r' {          // 换行
                                         self.scan(None);
-                                        lex_error(self.scanner, CHAR_NO_R_QUTION as usize);
+                                        lex_error(self.scanner, CharNoRQution as usize);
                                         token = Some(TokenType::Token(Token::new(ERR)));
                                     }
                                 },
                                 None => {   // 文件结束
-                                    lex_error(self.scanner, CHAR_NO_R_QUTION as usize);
+                                    lex_error(self.scanner, CharNoRQution as usize);
                                     token = Some(TokenType::Token(Token::new(ERR)));
                                 }
                             }
@@ -279,7 +279,7 @@ impl<'a> Lexer<'a> {
                         }
                     }
                     None => {   // 文件结束
-                        lex_error(self.scanner, CHAR_NO_R_QUTION as usize);
+                        lex_error(self.scanner, CharNoRQution as usize);
                         token = Some(TokenType::Token(Token::new(ERR)));
                     }
                 }
@@ -288,7 +288,7 @@ impl<'a> Lexer<'a> {
                     if self.scan(Some('\'')) {
                         token = Some(TokenType::Char(Char::new(c)));
                     } else {
-                        lex_error(self.scanner, CHAR_NO_R_QUTION as usize);
+                        lex_error(self.scanner, CharNoRQution as usize);
                         token = Some(TokenType::Token(Token::new(ERR)));
                     }
                 }
@@ -358,7 +358,7 @@ impl<'a> Lexer<'a> {
                                 }
                             }
                             if let None = self.ch {
-                                lex_error(self.scanner, COMMENT_NO_END as usize);
+                                lex_error(self.scanner, CommentNoEnd as usize);
                             }
                         } else {
                             token = Some(TokenType::Token(Token::new(DIV)));
@@ -403,7 +403,7 @@ impl<'a> Lexer<'a> {
                             token = Some(TokenType::Token(Token::new(ERR)));
                         }
                         if token.clone().unwrap().get_tag() == ERR {
-                            lex_error(self.scanner, OR_NO_PAIR as usize);
+                            lex_error(self.scanner, OrNoPair as usize);
                         }
                     },
                     '!' => {
@@ -451,7 +451,7 @@ impl<'a> Lexer<'a> {
                     },
                     _ => {
                         token = Some(TokenType::Token(Token::new(ERR)));
-                        lex_error(self.scanner, TOKEN_NO_EXIST as usize);
+                        lex_error(self.scanner, TokenNoExist as usize);
                     }
                 }
             }
@@ -477,17 +477,17 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::Tag::{DEC, DIV, END, INC, KW_CHAR, KW_INT, MUL};
+    use crate::common::Tag::{DEC, DIV, END, INC, KwChar, KwInt, MUL};
     use crate::scanner::Scanner;
     use crate::lexer::Lexer;
     use crate::token::{Token, TokenType, Id, Num, Char, Str};
 
     #[test]
     fn test_tokenize() {
-        let test_token = [TokenType::Token(Token::new(KW_INT)),
+        let test_token = [TokenType::Token(Token::new(KwInt)),
                                          TokenType::Id(Id::new("val_name".to_string())),
                                          TokenType::Id(Id::new("add".to_string())),
-                                         TokenType::Token(Token::new(KW_CHAR)),
+                                         TokenType::Token(Token::new(KwChar)),
                                          TokenType::Id(Id::new("func_tests".to_string())),
                                          TokenType::Token(Token::new(INC)),
                                          TokenType::Token(Token::new(DEC)),

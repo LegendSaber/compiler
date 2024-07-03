@@ -1,10 +1,10 @@
-use crate::common::SynError::{self, COLON_LOST, COLON_WRONG, ID_LOST, ID_WRONG, LBRACE_LOST, LBRACE_WRONG, LITERAL_LOST, LITERAL_WRONG, LPAREN_LOST, LPAREN_WRONG, NUM_LOST, NUM_WRONG, RBRACE_LOST, RBRACE_WRONG, RBRACK_LOST, RPAREN_LOST, RPAREN_WRONG, SEMICON_LOST, SEMICON_WRONG, TYPE_LOST, TYPE_WRONG};
-use crate::common::Tag::{self, CH, DEC, ID, INC, KW_WHILE, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KW_FOR, KW_DO, KW_IF, KW_SWITCH, KW_BREAK, SEMICON, KW_INT, KW_VOID, KW_CHAR, RBRACE, KW_CONTINUE, KW_RETURN, END, ASSIGN, KW_ELSE, KW_CASE, KW_DEFAULT, COLON, LBRACK, RBRACK, COMMA, OR, AND, GT, GE, LT, ADD, NEQU, EQU, LE, DIV};
+use crate::common::SynError::{self, ColonLost, ColonWrong, IdLost, IdWrong, LbraceLost, LbraceWrong, LiteralLost, LiteralWrong, LparenLost, LparenWrong, NumLost, NumWrong, RbraceLost, RbraceWrong, RbrackLost, RparenLost, RparenWrong, SemiconLost, SemiconWrong, TypeLost, TypeWrong};
+use crate::common::Tag::{self, CH, DEC, ID, INC, KwWhile, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KwFor, KwDo, KwIf, KwSwitch, KwBreak, SEMICON, KwInt, KwVoid, KwChar, RBRACE, KwContinue, KwReturn, END, ASSIGN, KwElse, KwCase, KwDefault, COLON, LBRACK, RBRACK, COMMA, OR, AND, GT, GE, LT, ADD, NEQU, EQU, LE, DIV};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
 use crate::symbol::{Fun, Var};
 use crate::symtab::SymTab;
-use crate::token::{Token, TokenType};
+use crate::token::TokenType;
 
 fn syn_error(scanner: &mut Scanner, code: usize, t: &TokenType)
 {
@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
 
             Some(v)
         } else {
-            self.recovery(rval_opr(&self.look), LITERAL_LOST, LITERAL_WRONG);
+            self.recovery(rval_opr(&self.look), LiteralLost, LiteralWrong);
             None
         }
     }
@@ -131,32 +131,32 @@ impl<'a> Parser<'a> {
 
     fn statement(&mut self) {
         match self.look.get_tag() {
-            KW_WHILE => self.while_stat(),
-            KW_FOR => self.for_stat(),
-            KW_DO => self.do_while_stat(),
-            KW_IF => self.if_stat(),
-            KW_SWITCH => self.switch_stat(),
-            KW_BREAK => {
+            KwWhile => self.while_stat(),
+            KwFor => self.for_stat(),
+            KwDo => self.do_while_stat(),
+            KwIf => self.if_stat(),
+            KwSwitch => self.switch_stat(),
+            KwBreak => {
                 self.move_token();
                 if !self.match_tag(SEMICON) {
-                    self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                    self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
                 }
             },
-            KW_CONTINUE => {
+            KwContinue => {
                 self.move_token();
                 if !self.match_tag(SEMICON) {
-                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
                 }
             },
-            KW_RETURN => {
+            KwReturn => {
                 self.move_token();
                 if !self.match_tag(SEMICON) {
-                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
                 }
             },
             _ => {
                 if !self.match_tag(SEMICON) {
-                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+                    self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
                 }
             }
         }
@@ -165,15 +165,15 @@ impl<'a> Parser<'a> {
     fn while_stat(&mut self) {
         self.sym_tab.enter();
 
-        self.match_tag(KW_WHILE);
+        self.match_tag(KwWhile);
         if !self.match_tag(LPAREN) {
-            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), TYPE_LOST, TYPE_WRONG);
+            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), TypeLost, TypeWrong);
         }
 
         self.altexpr();
 
         if !self.match_tag(RPAREN) {
-            self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST, RPAREN_WRONG);
+            self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
         }
 
         // block
@@ -187,21 +187,21 @@ impl<'a> Parser<'a> {
     fn for_stat(&mut self) {
         self.sym_tab.enter();
 
-        if self.match_tag(KW_FOR) {
+        if self.match_tag(KwFor) {
             if !self.match_tag(LPAREN) {
-                self.recovery(type_first(&self.look) || expr_first(&self.look), LPAREN_LOST, LPAREN_WRONG);
+                self.recovery(type_first(&self.look) || expr_first(&self.look), LparenLost, LparenWrong);
             }
 
             self.for_init();
 
             if !self.match_tag(SEMICON) {
-                self.recovery(expr_first(&self.look), SEMICON_LOST, SEMICON_WRONG);
+                self.recovery(expr_first(&self.look), SemiconLost, SemiconWrong);
             }
 
             self.altexpr();
 
             if !self.match_tag(RPAREN) {
-                self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST, RPAREN_WRONG);
+                self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
             }
 
             if equal_tag(&self.look, LBRACE) {
@@ -223,13 +223,13 @@ impl<'a> Parser<'a> {
         // 进入do作用域
         self.sym_tab.enter();
 
-        self.match_tag(KW_DO);
+        self.match_tag(KwDo);
         self.block();
-        if !self.match_tag(KW_WHILE) {
-            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LPAREN_LOST, LPAREN_WRONG);
+        if !self.match_tag(KwWhile) {
+            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LparenLost, LparenWrong);
         }
         if !self.match_tag(LPAREN) {
-            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LPAREN_LOST, LPAREN_WRONG);
+            self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LparenLost, LparenWrong);
         }
 
         // 离开do作用域
@@ -238,25 +238,25 @@ impl<'a> Parser<'a> {
         self.altexpr();
 
         if !self.match_tag(RPAREN) {
-            self.recovery(equal_tag(&self.look, SEMICON), RPAREN_LOST, RPAREN_WRONG);
+            self.recovery(equal_tag(&self.look, SEMICON), RparenLost, RparenWrong);
         }
         if !self.match_tag(SEMICON) {
-            self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SEMICON_LOST, SEMICON_WRONG);
+            self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
         }
     }
 
     fn if_stat(&mut self) {
         self.sym_tab.enter();
 
-        if self.match_tag(KW_IF) {
+        if self.match_tag(KwIf) {
             if !self.match_tag(LPAREN) {
-                self.recovery(expr_first(&self.look), LPAREN_LOST, LPAREN_WRONG);
+                self.recovery(expr_first(&self.look), LparenLost, LparenWrong);
             }
 
             self.altexpr();
 
             if !self.match_tag(RPAREN) {
-                self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST,RPAREN_WRONG);
+                self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
             }
         }
 
@@ -264,7 +264,7 @@ impl<'a> Parser<'a> {
     }
 
     fn else_stat(&mut self) {
-        if self.match_tag(KW_ELSE) {
+        if self.match_tag(KwElse) {
             self.sym_tab.enter();
 
             if equal_tag(&self.look, LBRACE) {
@@ -280,21 +280,21 @@ impl<'a> Parser<'a> {
     fn switch_stat(&mut self) {
         self.sym_tab.enter();
 
-        if self.match_tag(KW_SWITCH) {
+        if self.match_tag(KwSwitch) {
             if !self.match_tag(LPAREN) {
-                self.recovery(expr_first(&self.look), RPAREN_LOST, RPAREN_WRONG);
+                self.recovery(expr_first(&self.look), RparenLost, RparenWrong);
             }
 
             if !self.match_tag(RPAREN) {
-                self.recovery(equal_tag(&self.look, LBRACE), RPAREN_LOST, RPAREN_WRONG);
+                self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
             }
 
             if !self.match_tag(LBRACE) {
-                self.recovery(equal_tag(&self.look, KW_CASE) || equal_tag(&self.look, KW_DEFAULT), LBRACE_LOST, LBRACE_WRONG);
+                self.recovery(equal_tag(&self.look, KwCase) || equal_tag(&self.look, KwDefault), LbraceLost, LbraceWrong);
             }
 
             if !self.match_tag(RBRACE) {
-                self.recovery(type_first(&self.look) || statement_first(&self.look), RBRACE_LOST, RBRACE_WRONG);
+                self.recovery(type_first(&self.look) || statement_first(&self.look), RbraceLost, RbraceWrong);
             }
         }
 
@@ -302,11 +302,11 @@ impl<'a> Parser<'a> {
     }
 
     fn case_stat(&mut self) {
-        if self.match_tag(KW_CASE) {
+        if self.match_tag(KwCase) {
 
-        } else if self.match_tag(KW_DEFAULT) {
+        } else if self.match_tag(KwDefault) {
             if !self.match_tag(COLON) {
-                self.recovery(type_first(&self.look) || statement_first(&self.look), COLON_LOST, COLON_WRONG);
+                self.recovery(type_first(&self.look) || statement_first(&self.look), ColonLost, ColonWrong);
             }
             self.sym_tab.enter();
             // subprogram
@@ -331,18 +331,18 @@ impl<'a> Parser<'a> {
         if self.match_tag(LBRACK) {
             let mut len = 0;
             if self.match_tag(NUM) {
-                if let TokenType::Num(num) = self.look.borrow() {
+                if let TokenType::Num(num) = &self.look {
                     len = num.get_val();
                 }
 
                 self.move_token();
             } else {
-                self.recovery(equal_tag(&self.look, RBRACK), NUM_LOST, NUM_WRONG);
+                self.recovery(equal_tag(&self.look, RBRACK), NumLost, NumWrong);
             }
 
 
             if !self.match_tag(RBRACK) {
-                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, SEMICON), RBRACK_LOST, RBRACE_WRONG);
+                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, SEMICON), RbrackLost, RbraceWrong);
             }
 
             // 新的数组
@@ -359,23 +359,23 @@ impl<'a> Parser<'a> {
         let mut name = String::new();
 
         if equal_tag(&self.look, ID) {
-            if let TokenType::Id(id) = self.look.borrow() {
+            if let TokenType::Id(id) = &self.look {
                 name = id.get_name();
                 self.move_token();
             }
             self.varrdef(ext, t, false, name)
         } else if self.match_tag(MUL) {
             if equal_tag(&self.look, ID) {
-                if let TokenType::Id(id) = self.look.borrow() {
+                if let TokenType::Id(id) = &self.look {
                     name = id.get_name();
                     self.move_token();
                 }
             } else {
-                self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN), ID_LOST, ID_WRONG);
+                self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN), IdLost, IdWrong);
             }
             self.init(ext, t, true, name)
         } else {
-            self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN) || equal_tag(&self.look, LBRACK), ID_LOST, ID_WRONG);
+            self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN) || equal_tag(&self.look, LBRACK), IdLost, IdWrong);
 
             self.varrdef(ext, t, false, name)
         }
@@ -396,14 +396,15 @@ impl<'a> Parser<'a> {
             let mut para_list: Vec<Box<Var>> = Vec::new();
             self.para(&mut para_list);
             if !self.match_tag(RPAREN) {
-                self.recovery(equal_tag(&self.look, LBRACK) || equal_tag(&self.look, SEMICON), RPAREN_LOST, RPAREN_WRONG);
+                self.recovery(equal_tag(&self.look, LBRACK) || equal_tag(&self.look, SEMICON), RparenLost, RparenWrong);
             }
             let fun = Box::new(Fun::new(ext, t, name, para_list));
             self.fun_tail(fun);
             // 离开作用域
             self.sym_tab.leave();
         } else {
-            self.sym_tab.add_var(self.varrdef(ext, t, false, name));
+            let v = self.varrdef(ext, t, false, name);
+            self.sym_tab.add_var(v);
             self.deflist(ext, t);
         }
     }
@@ -455,23 +456,23 @@ impl<'a> Parser<'a> {
 
         return if self.match_tag(MUL) {
             if equal_tag(&self.look, ID) {
-                if let TokenType::Id(id) = self.look.borrow() {
+                if let TokenType::Id(id) = &self.look {
                     name = id.get_name();
                     self.move_token();
                 }
             } else {
-                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN), ID_LOST, ID_WRONG);
+                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN), IdLost, IdWrong);
             }
 
             Box::new(Var::new_pointer(self.sym_tab.get_scope_path(), false, t, true, name, None))
         } else if equal_tag(&self.look, ID) {
-            if let TokenType::Id(id) = self.look.borrow() {
+            if let TokenType::Id(id) = &self.look {
                 name = id.get_name();
                 self.move_token();
             }
             self.para_data_tail(t, name)
         } else {
-            self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN) || equal_tag(&self.look, LBRACK), ID_LOST, ID_WRONG);
+            self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN) || equal_tag(&self.look, LBRACK), IdLost, IdWrong);
             Box::new(Var::new_pointer(self.sym_tab.get_scope_path(), false, t, false, name, None))
         }
     }
@@ -483,13 +484,13 @@ impl<'a> Parser<'a> {
         if self.match_tag(LBRACK) {
             let mut len = 1;
             if equal_tag(&self.look, NUM) {
-                if let TokenType::Num(num) = self.look.borrow() {
+                if let TokenType::Num(num) = &self.look {
                     len = num.get_val();
                 }
                 self.move_token();
             }   // 可以没有指定长度
             if !self.match_tag(RBRACK) {
-                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN), RBRACK_LOST, RBRACE_WRONG);
+                self.recovery(equal_tag(&self.look, COMMA) || equal_tag(&self.look, RPAREN), RbrackLost, RbraceWrong);
             }
             return Box::new(Var::new_array(self.sym_tab.get_scope_path(), false, t, name, len));
         }
@@ -501,13 +502,13 @@ impl<'a> Parser<'a> {
 	    <type>				->	rsv_int|rsv_char|rsv_bool|rsv_void
     */
     fn para_type(&mut self) -> Tag {
-        let mut tmp: Tag = KW_INT;  // 默认类型
+        let mut tmp: Tag = KwInt;  // 默认类型
 
         if type_first(&self.look) {
             tmp = self.look.get_tag();
             self.move_token();
         } else {
-            self.recovery(equal_tag(&self.look, ID) || equal_tag(&self.look, MUL), TYPE_LOST, TYPE_WRONG);
+            self.recovery(equal_tag(&self.look, ID) || equal_tag(&self.look, MUL), TypeLost, TypeWrong);
         }
 
         tmp
@@ -516,14 +517,14 @@ impl<'a> Parser<'a> {
 
 // 语句
 fn statement_first(look: &TokenType) -> bool {
-    expr_first(look) || equal_tag(look, SEMICON) || equal_tag(look, KW_WHILE) || equal_tag(look, KW_FOR) ||
-    equal_tag(look, KW_DO) || equal_tag(look, KW_IF) || equal_tag(look, KW_SWITCH) || equal_tag(look, KW_RETURN) ||
-    equal_tag(look, KW_BREAK) || equal_tag(look, KW_CONTINUE)
+    expr_first(look) || equal_tag(look, SEMICON) || equal_tag(look, KwWhile) || equal_tag(look, KwFor) ||
+    equal_tag(look, KwDo) || equal_tag(look, KwIf) || equal_tag(look, KwSwitch) || equal_tag(look, KwReturn) ||
+    equal_tag(look, KwBreak) || equal_tag(look, KwContinue)
 }
 
 // 类型
 fn type_first(look: &TokenType) -> bool {
-    equal_tag(look, KW_INT) || equal_tag(look, KW_CHAR) || equal_tag(look, KW_VOID)
+    equal_tag(look, KwInt) || equal_tag(look, KwChar) || equal_tag(look, KwVoid)
 }
 
 // 表达式

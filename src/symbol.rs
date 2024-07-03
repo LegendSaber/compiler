@@ -1,7 +1,7 @@
 use crate::plat::STACK_BASE;
 use crate::common::{SemError, Tag};
-use crate::common::SemError::VOID_VAR;
-use crate::common::Tag::{KW_CHAR, KW_INT, KW_VOID};
+use crate::common::SemError::VoidVar;
+use crate::common::Tag::{KwChar, KwInt, KwVoid};
 use crate::token::TokenType;
 
 pub(crate)  fn sem_error(code: usize, name: &str) {
@@ -138,18 +138,18 @@ impl Var {
 
         match lt {
             TokenType::Str(str) => {
-                var.set_type(KW_CHAR);
+                var.set_type(KwChar);
                 // var.set_name(GenIR::genLb());
                 var.set_str_val(str.get_str());
                 var.set_array(var.str_val.len() as isize);
             },
             TokenType::Num(num) => {
-                var.set_type(KW_INT);
+                var.set_type(KwInt);
                 var.set_name("<int>".to_string());
                 var.set_int_val(num.get_val());
             },
             TokenType::Char(c) => {
-                var.set_type(KW_CHAR);
+                var.set_type(KwChar);
                 var.set_name("<char>".to_string());
                 var.set_int_val(0);
                 var.set_char_value(c.get_ch());
@@ -171,7 +171,7 @@ impl Var {
         var.set_left(false);
         var.set_int_val(0);
         var.set_literal(false);
-        var.set_type(KW_VOID);
+        var.set_type(KwVoid);
         var.set_ptr(true);
 
         var
@@ -185,7 +185,7 @@ impl Var {
         var.set_name("<int>".to_string());
         var.set_left(false);
         var.set_literal(true);
-        var.set_type(KW_INT);
+        var.set_type(KwInt);
         var.set_int_val(val);
 
         var
@@ -200,6 +200,10 @@ impl Var {
 
     pub(crate) fn set_int_val(&mut self, int_val: isize) {
         self.int_val = int_val;
+    }
+
+    pub(crate) fn set_str_val(&mut self, str_val: String) {
+        self.str_val = str_val;
     }
 
     pub(crate) fn set_literal(&mut self, literal: bool) {
@@ -245,14 +249,14 @@ impl Var {
 
     pub(crate) fn set_type(&mut self, t: Tag) {
         self.var_type = t;
-        if self.var_type == KW_VOID {
-            sem_error(VOID_VAR as usize, "");     // 不允许void变量
-            self.var_type == KW_INT;    // 默认为int
+        if self.var_type == KwVoid {
+            sem_error(VoidVar as usize, "");     // 不允许void变量
+            self.var_type = KwInt;    // 默认为int
         }
 
-        if !self.externed && self.var_type == KW_INT {
+        if !self.externed && self.var_type == KwInt {
             self.size = 4;
-        } else if !self.externed && self.var_type == KW_CHAR {
+        } else if !self.externed && self.var_type == KwChar {
             self.size = 1;
         }
     }
@@ -284,7 +288,7 @@ impl Var {
 
     pub(crate) fn set_array(&mut self, len: isize) {
         if len <= 0 {
-            sem_error(SemError::ARRAY_LEN_INVALID as usize, self.name.borrow());
+            sem_error(SemError::ArrayLenInvalid as usize, &self.name);
         } else {
             self.is_array = true;
             self.is_left = false;   // 数组不能作为左值

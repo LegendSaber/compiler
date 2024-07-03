@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 use crate::common::Tag::{self, *};
 
 pub struct Keywords {
@@ -11,21 +10,21 @@ impl Keywords {
     pub(crate) fn new() -> Self {
         let mut keywords: HashMap<String, Tag> = HashMap::default();
 
-        keywords.insert("int".to_string(), KW_INT);
-        keywords.insert("char".to_string(), KW_CHAR);
-        keywords.insert("void".to_string(), KW_VOID);
-        keywords.insert("extern".to_string(), KW_EXTERN);
-        keywords.insert("if".to_string(), KW_IF);
-        keywords.insert("else".to_string(), KW_ELSE);
-        keywords.insert("switch".to_string(), KW_SWITCH);
-        keywords.insert("case".to_string(), KW_CASE);
-        keywords.insert("default".to_string(), KW_DEFAULT);
-        keywords.insert("while".to_string(), KW_WHILE);
-        keywords.insert("do".to_string(), KW_DO);
-        keywords.insert("for".to_string(), KW_FOR);
-        keywords.insert("break".to_string(), KW_BREAK);
-        keywords.insert("continue".to_string(), KW_CONTINUE);
-        keywords.insert("return".to_string(), KW_RETURN);
+        keywords.insert("int".to_string(), KwInt);
+        keywords.insert("char".to_string(), KwChar);
+        keywords.insert("void".to_string(), KwVoid);
+        keywords.insert("extern".to_string(), KwExtern);
+        keywords.insert("if".to_string(), KwIf);
+        keywords.insert("else".to_string(), KwElse);
+        keywords.insert("switch".to_string(), KwSwitch);
+        keywords.insert("case".to_string(), KwCase);
+        keywords.insert("default".to_string(), KwDefault);
+        keywords.insert("while".to_string(), KwWhile);
+        keywords.insert("do".to_string(), KwDo);
+        keywords.insert("for".to_string(), KwFor);
+        keywords.insert("break".to_string(), KwBreak);
+        keywords.insert("continue".to_string(), KwContinue);
+        keywords.insert("return".to_string(), KwReturn);
 
         Keywords {
             keywords
