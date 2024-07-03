@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::common::SemError::{ExternFunDef, FunDecErr, FunReDef, VarReDef, VarUnDec};
+use crate::common::SemError::{ExternFunDef, FunCallErr, FunDecErr, FunReDef, FunUnDec, VarReDef, VarUnDec};
 use crate::symbol::{Fun, Var, sem_error};
 
 pub struct SymTab {
@@ -112,7 +112,7 @@ impl SymTab {
 
         if self.fun_tab.contains_key(&fun.get_name()) {
             // 重复声明的函数，判断是否重复声明
-            let last = self.fun_tab.get(&fun.get_name()).unwrap();
+            let last = self.fun_tab.get(&fun.get_name()).unwrap().clone();
             if !last.match_fun(fun.clone()) {
                 // 函数声明与定义不匹配
                 sem_error(FunDecErr as usize, &fun.get_name());
@@ -140,7 +140,7 @@ impl SymTab {
             self.fun_list.push(fun.get_name());
         } else {
             // 已经声明
-            let last = self.fun_tab.get_mut(&fun.get_name()).unwrap();
+            let mut last = self.fun_tab.get_mut(&fun.get_name()).unwrap().clone();
             if last.get_extern() {
                 // 之前是声明
                 if !last.match_fun(fun.clone()) {   // 匹配的声明
@@ -151,14 +151,29 @@ impl SymTab {
                 // 重定义
                 sem_error(FunReDef as usize, &fun.get_name());
             }
-            // cur_fun = *last;
+            cur_fun = last;
         }
 
-        // self.cur_fun = Some(cur_fun);
+        self.cur_fun = Some(cur_fun);
+        // ir -> genFunHead(curFun) 产生函数入口
     }
 
     // 结束定义一个函数
     pub(crate) fn end_def_fun(&mut self) {
+        // 产生函数出口
         self.cur_fun = None;
+    }
+
+    pub(crate) fn get_fun(&self, name: String, args: Vec<Box<Var>>) -> Option<Box<Fun>> {
+        if self.fun_tab.contains_key(&name) {
+            let last = self.fun_tab.get(&name).unwrap().clone();
+            if !last.match_args(args) {
+                sem_error(FunCallErr as usize, &name);
+                return None;
+            }
+            return Some(last);
+        }
+        sem_error(FunUnDec as usize, &name);
+        None
     }
 }

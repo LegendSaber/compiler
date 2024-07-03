@@ -325,6 +325,7 @@ pub struct Fun {
 }
 
 impl Fun {
+    // 声明定义匹配
     pub(crate) fn match_fun(&self, f: Box<Fun>) -> bool {
         if self.name != f.get_name() {
             return false;
@@ -344,6 +345,21 @@ impl Fun {
             return false;
         }
 
+        true
+    }
+
+    // 行参实惨匹配
+    pub(crate) fn match_args(&self, args: Vec<Box<Var>>) -> bool {
+        if self.para_var.len() != args.len() {
+            return false;
+        }
+
+        let len = self.para_var.len();
+        for i in 0..len {
+            if self.para_var[i].get_type() != args[i].get_type() {
+                return false;
+            }
+        }
         true
     }
 
