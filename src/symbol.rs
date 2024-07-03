@@ -3,6 +3,7 @@ use crate::common::{SemError, Tag};
 use crate::common::SemError::VoidVar;
 use crate::common::Tag::{KwChar, KwInt, KwVoid};
 use crate::token::TokenType;
+use crate::symtab::{FOUR, ONE, VOID_VAR};
 
 pub(crate)  fn sem_error(code: usize, name: &str) {
     //语义错误信息串
@@ -190,6 +191,39 @@ impl Var {
 
         var
     }
+
+    pub(crate) fn get_void() -> Option<Box<Var>>{
+        VOID_VAR
+    }
+
+    /*
+	    获取true变量
+    */
+    pub(crate) fn get_true() -> Option<Box<Var>> {
+        ONE
+    }
+
+    /*
+	    获取步长变量
+    */
+    pub(crate) fn get_step(v: Box<Var>) -> Option<Box<Var>> {
+        return if v.is_base() {
+            ONE
+        } else if v.get_type() == KwChar {
+            ONE
+        } else if v.get_type() == KwInt {
+            FOUR
+        } else {
+            None
+        }
+    }
+
+    /*
+	    是基本类型
+    */
+    pub(crate) fn is_base(&self) -> bool {
+        !self.is_ptr && !self.is_array
+    }
 }
 
 impl Var {
@@ -306,6 +340,7 @@ impl Var {
     pub(crate) fn get_offset(&self) -> isize {
         self.offset
     }
+
 }
 
 #[derive(Clone)]

@@ -2,6 +2,11 @@ use std::collections::HashMap;
 use crate::common::SemError::{ExternFunDef, FunCallErr, FunDecErr, FunReDef, FunUnDec, VarReDef, VarUnDec};
 use crate::symbol::{Fun, Var, sem_error};
 
+pub(crate) const VOID_VAR: Option<Box<Var>> = None;
+pub(crate) const ZERO: Option<Box<Var>> = None;
+pub(crate) const ONE: Option<Box<Var>> = None;
+pub(crate) const FOUR: Option<Box<Var>> = None;
+
 pub struct SymTab {
     // 声明记录顺序
     var_list: Vec<String>,  // 记录变量的添加顺序

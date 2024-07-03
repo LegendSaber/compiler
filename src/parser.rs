@@ -1,5 +1,5 @@
-use crate::common::SynError::{self, ColonLost, ColonWrong, IdLost, IdWrong, LbraceLost, LbraceWrong, LiteralLost, LiteralWrong, LparenLost, LparenWrong, NumLost, NumWrong, RbraceLost, RbraceWrong, RbrackLost, RparenLost, RparenWrong, SemiconLost, SemiconWrong, TypeLost, TypeWrong};
-use crate::common::Tag::{self, CH, DEC, ID, INC, KwWhile, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KwFor, KwDo, KwIf, KwSwitch, KwBreak, SEMICON, KwInt, KwVoid, KwChar, RBRACE, KwContinue, KwReturn, END, ASSIGN, KwElse, KwCase, KwDefault, COLON, LBRACK, RBRACK, COMMA, OR, AND, GT, GE, LT, ADD, NEQU, EQU, LE, DIV};
+use crate::common::SynError::{self, ColonLost, ColonWrong, CommaLost, IdLost, IdWrong, LbraceLost, LbraceWrong, LparenLost, LparenWrong, NumLost, NumWrong, RbraceLost, RbraceWrong, RbrackLost, RparenLost, RparenWrong, SemiconLost, SemiconWrong, TypeLost, TypeWrong};
+use crate::common::Tag::{self, CH, DEC, ID, INC, KwWhile, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KwFor, KwDo, KwIf, KwSwitch, KwBreak, SEMICON, KwInt, KwVoid, KwChar, RBRACE, KwContinue, KwReturn, END, ASSIGN, KwElse, KwCase, KwDefault, COLON, LBRACK, RBRACK, COMMA, OR, AND, GT, GE, LT, ADD, NEQU, EQU, LE, DIV, KwExtern, MOD};
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
 use crate::symbol::{Fun, Var};
@@ -38,23 +38,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // <literal>			->	number|string|chara
-    pub(crate) fn literal(&mut self) -> Option<Box<Var>> {
-        if equal_tag(&self.look, NUM) || equal_tag(&self.look, STR) || equal_tag(&self.look, CH) {
-            let v = Box::new(Var::new_const(&self.look));
-            if equal_tag(&self.look, STR) {
-                self.sym_tab.add_str(v.clone());        // 字符串常量记录
-            } else {
-                self.sym_tab.add_var(v.clone());        // 其他常量记录
-            }
-
-            Some(v)
-        } else {
-            self.recovery(rval_opr(&self.look), LiteralLost, LiteralWrong);
-            None
-        }
-    }
-
     // 移进
     fn move_token(&mut self) {
         self.look = self.lexer.tokenize();
@@ -79,13 +62,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // 语法分析主程序
     fn analyze(&mut self) {
-        self.move_token();
+        self.move_token();      // 预先读入
         self.program();
-    }
-
-    fn segment(&self) {
-
     }
 
     fn program(&mut self) {
@@ -97,38 +77,421 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn block(&mut self) {
-
+    /*
+<segment>			->	rsv_extern <type><def>|<type><def>
+*/
+    fn segment(&mut self) {
+        let ext = self.match_tag(KwExtern);
+        let t = self.var_type();
+        self.def(ext, t);
     }
 
-    fn altexpr(&mut self) {
 
-    }
+    /*
+	    <def>					->	mul id <init><deflist>|ident <idtail>
+    */
+    fn def(&mut self, ext: bool, t: Tag) {
+        let mut name = String::new();
+        if self.match_tag(MUL) {    // 指针
+            if equal_tag(&self.look, ID) {
+                if let TokenType::Id(id) = &self.look {
+                    name = id.get_name();
+                    self.move_token();
+                }
+            } else {
+                self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN), IdLost, IdWrong);
+            }
 
-    fn expr(&mut self) -> Option<Box<Var>> {
-        self.assexpr()
-    }
-
-    fn assexpr(&mut self) -> Option<Box<Var>> {
-        let lval = self.orexpr();
-        self.asstail(lval)
-    }
-
-    fn asstail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
-        if self.match_tag(ASSIGN) {
-
-            // self.asstail()
+            let v = self.init(ext, t, true, name);
+            self.sym_tab.add_var(v);
+            self.deflist(ext, t);
+        } else {
+            if equal_tag(&self.look, ID) {  // 变量、数组、函数
+                if let TokenType::Id(id) = &self.look {
+                    name = id.get_name();
+                    self.move_token();
+                }
+            } else {
+                self.recovery(equal_tag(&self.look, SEMICON) || equal_tag(&self.look, COMMA) || equal_tag(&self.look, ASSIGN) || equal_tag(&self.look, LPAREN) || equal_tag(&self.look, LBRACK), IdLost, IdWrong);
+            }
+            self.id_tail(ext, t, false, name);
         }
-        lval
     }
 
-    fn orexpr(&self) -> Option<Box<Var>> {
-        None
+    /*
+        <type>				->	rsv_int|rsv_char|rsv_bool|rsv_void
+    */
+    fn var_type(&mut self) -> Tag {
+        let mut tmp: Tag = KwInt;  // 默认类型
+
+        if type_first(&self.look) {
+            tmp = self.look.get_tag();
+            self.move_token();
+        } else {
+            self.recovery(equal_tag(&self.look, ID) || equal_tag(&self.look, MUL), TypeLost, TypeWrong);
+        }
+
+        tmp
+    }
+
+    fn block(&mut self) {
+        if !self.match_tag(LBRACE) {
+            self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), LbraceLost, LbraceWrong);
+        }
+
+        self.subprogram();
+
+        if !self.match_tag(RBRACE) {
+            self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, KwExtern) || equal_tag(&self.look, KwElse) || equal_tag(&self.look, KwCase) || equal_tag(&self.look, KwDefault), RbraceLost, RbraceWrong);
+        }
+    }
+
+    fn subprogram(&mut self) {
+        if type_first(&self.look) { // 局部变量
+            self.local_def();
+            self.subprogram();
+        } else if statement_first(&self.look) { // 语句
+            self.statement();
+            self.subprogram();
+        }
+    }
+
+    /*
+	    <localdef>		->	<type><defdata><deflist>
+    */
+    fn local_def(&mut self) {
+        let t = self.var_type();
+        let v = self.defdata(false, t);
+        self.sym_tab.add_var(v);
+        self.deflist(false, t);
+    }
+}
+
+impl <'a> Parser<'a> {
+    /*
+    	<altexpr>			->	<expr>|^
+    */
+    fn alt_expr(&mut self) -> Option<Box<Var>> {
+        return if expr_first(&self.look) {
+            self.expr()
+        } else {
+            Var::get_void()
+        }
+
+    }
+
+    /*
+	    <expr> 				-> 	<assexpr>
+    */
+    fn expr(&mut self) -> Option<Box<Var>> {
+        self.ass_expr()
+    }
+
+    /*
+	    <assexpr>			->	<orexpr><asstail>
+    */
+    fn ass_expr(&mut self) -> Option<Box<Var>> {
+        let lval = self.or_expr();
+        self.ass_tail(lval)
+    }
+
+    /*
+	    <asstail>			->	assign<assexpr>|^
+    */
+    fn ass_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
+        return if self.match_tag(ASSIGN) {
+            self.ass_expr();
+            self.ass_tail(lval)
+        } else {
+            lval
+        }
+    }
+
+    /*
+	    <orexpr> 			-> 	<andexpr><ortail>
+    */
+    fn or_expr(&mut self) -> Option<Box<Var>> {
+        let lval = self.and_expr();
+        self.or_tail(lval)
+    }
+
+    /*
+	    <ortail> 			-> 	or <andexpr> <ortail>|^
+    */
+    fn or_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
+        return if self.match_tag(OR) {
+            let rval = self.and_expr();
+
+            self.or_tail(rval)
+        } else {
+            lval
+        }
+    }
+
+    /*
+	    <andexpr> 		-> 	<cmpexpr><andtail>
+    */
+    fn and_expr(&mut self) -> Option<Box<Var>> {
+        let lval = self.cmp_expr();
+        self.and_tail(lval)
+    }
+
+    /*
+	    <andtail> 		-> 	and <cmpexpr> <andtail>|^
+    */
+    fn and_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
+        return if self.match_tag(AND) {
+            let rval = self.cmp_expr();
+            // self.andtail
+            None
+        } else {
+            lval
+        }
+    }
+
+    /*
+	    <cmpexpr>			->	<aloexpr><cmptail>
+    */
+    fn cmp_expr(&mut self) -> Option<Box<Var>> {
+        let lval = self.alo_expr();
+        self.cmp_tail(lval)
+    }
+
+    /*
+	    <cmptail>			->	<cmps><aloexpr><cmptail>|^
+    */
+    fn cmp_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
+        return if equal_tag(&self.look, GT) || equal_tag(&self.look, GE) || equal_tag(&self.look, LT) || equal_tag(&self.look, LE) || equal_tag(&self.look, EQU) || equal_tag(&self.look, NEQU) {
+            let opt = self.cmps();
+            let rval = self.alo_expr();
+            // self.cmptail
+            None
+        } else {
+            lval
+        }
+    }
+
+    /*
+	    <cmps>				->	gt|ge|ls|le|equ|nequ
+    */
+    fn cmps(&mut self) -> Tag {
+        let opt = self.look.get_tag();
+        self.move_token();
+        opt
+    }
+
+    /*
+	    <aloexpr>			->	<item><alotail>
+    */
+    fn alo_expr(&mut self) -> Option<Box<Var>> {
+        let lval = self.item();
+        self.alo_tail(lval)
+    }
+
+    /*
+	    <alotail>			->	<adds><item><alotail>|^
+    */
+    fn alo_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
+        return if equal_tag(&self.look, ADD) || equal_tag(&self.look, SUB) {
+            let opt = self.adds();
+            None
+        } else {
+            lval
+        }
+    }
+
+    /*
+	    <adds>				->	add|sub
+    */
+    fn adds(&mut self) -> Tag {
+        let opt = self.look.get_tag();
+        self.move_token();
+        opt
+    }
+
+    /*
+	    <item>				->	<factor><itemtail>
+    */
+    fn item(&mut self) -> Option<Box<Var>> {
+        let lval = self.factor();
+        self.item_tail(lval)
+    }
+
+    /*
+	    <itemtail>		->	<muls><factor><itemtail>|^
+    */
+    fn item_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
+        return if equal_tag(&self.look, MUL) || equal_tag(&self.look, DIV) || equal_tag(&self.look, MOD) {
+            let opt = self.muls();
+            let rval = self.factor();
+            None
+        } else {
+            lval
+        }
+    }
+
+    /*
+	    <muls>				->	mul|div|mod
+    */
+    fn muls(&mut self) -> Tag {
+        let opt = self.look.get_tag();
+        self.move_token();
+        opt
+    }
+
+    /*
+	    <factor> 			-> 	<lop><factor>|<val>
+    */
+    fn factor(&mut self) -> Option<Box<Var>> {
+        return if equal_tag(&self.look, NOT) || equal_tag(&self.look, SUB) || equal_tag(&self.look, LEA) || equal_tag(&self.look, MUL) || equal_tag(&self.look, INC) || equal_tag(&self.look, DEC) {
+            let opt = self.lop();
+            let v = self.factor();
+            None
+        } else {
+            self.val()
+        }
+    }
+
+    /*
+	    <lop> 				-> 	not|sub|lea|mul|incr|decr
+    */
+    fn lop(&mut self) -> Tag {
+        let opt = self.look.get_tag();
+        self.move_token();
+        opt
+    }
+
+    /*
+	    <val>					->	<elem><rop>
+    */
+    fn val(&mut self) -> Option<Box<Var>> {
+        let v = self.elem();
+        return if equal_tag(&self.look, INC) || equal_tag(&self.look, DEC) {
+            let opt = self.rop();
+            None
+        } else {
+            v
+        }
+    }
+
+    /*
+	    <rop>					->	incr|decr|^
+    */
+    fn rop(&mut self) -> Tag {
+        let opt = self.look.get_tag();
+        self.move_token();
+        opt
+    }
+
+    /*
+	    <elem>				->	ident<idexpr>|lparen<expr>rparen|<literal>
+    */
+    fn elem(&mut self) -> Option<Box<Var>> {
+        let mut v = None;
+        if equal_tag(&self.look, ID) {
+            if let TokenType::Id(id) = &self.look {
+                let name = id.get_name();
+                self.move_token();
+                v = self.id_expr(name);
+            }
+        } else if self.match_tag(LPAREN) {
+            v = self.expr();
+            if !self.match_tag(RPAREN) {
+                self.recovery(lval_opr(&self.look), RparenLost, RparenWrong);
+            }
+        } else {
+            // 常量
+            v = self.literal();
+        }
+
+        v
+    }
+
+    /*
+        <literal>			->	number|string|chara
+    */
+    fn literal(&mut self) -> Option<Box<Var>> {
+        let mut ret_v = None;
+
+        if equal_tag(&self.look, NUM) || equal_tag(&self.look, STR) || equal_tag(&self.look, CH) {
+            let v = Box::new(Var::new_const(&self.look));
+            ret_v = Some(v.clone());
+            if equal_tag(&self.look, STR) {
+                self.sym_tab.add_str(v);        // 字符串常量记录
+            } else {
+                self.sym_tab.add_var(v);        // 其他常量也记录到符号表
+            }
+            self.move_token();
+        }
+
+        ret_v
+    }
+
+    /*
+	    <idexpr>			->	lbrack <expr> rbrack|lparen<realarg>rparen|^
+    */
+    fn id_expr(&mut self, name: String) -> Option<Box<Var>> {
+        let mut v = None;
+        if self.match_tag(LBRACK) {
+            let index = self.expr();
+            if !self.match_tag(RBRACK) {
+                self.recovery(lval_opr(&self.look), LbraceLost, LbraceWrong);
+            }
+            let array = self.sym_tab.get_var(name);
+            v = None;
+        } else if self.match_tag(LPAREN) {
+            let mut args = Vec::new();
+            self.real_arg(&mut args);
+
+            v = None
+        } else {
+            v = self.sym_tab.get_var(name);
+        }
+
+        v
+    }
+
+    /*
+	    <real_arg>			->	<arg><arglist>|^
+    */
+    fn real_arg(&mut self, args: &mut Vec<Box<Var>>) {
+        if expr_first(&self.look) {
+            if let Some(arg) = self.arg() {
+                args.push(arg);
+                self.args_list(args);
+            }
+        }
+    }
+
+    /*
+	    <arglist>			->	comma<arg><arglist>|^
+    */
+    fn args_list(&mut self, args: &mut Vec<Box<Var>>) {
+        if !self.match_tag(COMMA) {
+            if let Some(arg) = self.arg() {
+                args.push(arg);
+                self.args_list(args);
+            }
+        }
+    }
+
+    /*
+	    <arg> 				-> 	<expr>
+    */
+    fn arg(&mut self) -> Option<Box<Var>> {
+        self.expr()
     }
 }
 
 impl<'a> Parser<'a> {
-
+    /*
+	    <statement>		->	<altexpr>semicon
+										|<whilestat>|<forstat>|<dowhilestat>
+										|<ifstat>|<switchstat>
+										|rsv_break semicon
+										|rsv_continue semicon
+										|rsv_return<altexpr>semicon
+    */
     fn statement(&mut self) {
         match self.look.get_tag() {
             KwWhile => self.while_stat(),
@@ -155,6 +518,7 @@ impl<'a> Parser<'a> {
                 }
             },
             _ => {
+                self.alt_expr();
                 if !self.match_tag(SEMICON) {
                     self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
                 }
@@ -162,6 +526,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /*
+	    <whilestat>		->	rsv_while lparen<altexpr>rparen<block>
+	    <block>				->	<block>|<statement>
+    */
     fn while_stat(&mut self) {
         self.sym_tab.enter();
 
@@ -170,7 +538,7 @@ impl<'a> Parser<'a> {
             self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), TypeLost, TypeWrong);
         }
 
-        self.altexpr();
+        self.alt_expr();
 
         if !self.match_tag(RPAREN) {
             self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
@@ -179,11 +547,17 @@ impl<'a> Parser<'a> {
         // block
         if equal_tag(&self.look, LBRACE) {
             self.block();
+        } else {
+            self.statement();
         }
 
         self.sym_tab.leave();
     }
 
+    /*
+	    <forstat> 		-> 	rsv_for lparen <forinit> semicon <altexpr> semicon <altexpr> rparen <block>
+	    <block>				->	<block>|<statement>
+    */
     fn for_stat(&mut self) {
         self.sym_tab.enter();
 
@@ -198,7 +572,7 @@ impl<'a> Parser<'a> {
                 self.recovery(expr_first(&self.look), SemiconLost, SemiconWrong);
             }
 
-            self.altexpr();
+            self.alt_expr();
 
             if !self.match_tag(RPAREN) {
                 self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
@@ -215,16 +589,35 @@ impl<'a> Parser<'a> {
         self.sym_tab.leave();
     }
 
-    fn for_init(&self) {
-
+    /*
+	    <forinit> 		->  <localdef> | <altexpr>
+    */
+    fn for_init(&mut self) {
+        if type_first(&self.look) {
+            self.local_def();
+        } else {
+            self.alt_expr();
+            if !self.match_tag(SEMICON) {
+                self.recovery(expr_first(&self.look), SemiconLost, SemiconWrong);
+            }
+        }
     }
 
+    /*
+	    <dowhilestat> -> 	rsv_do <block> rsv_while lparen<altexpr>rparen semicon
+	    <block>				->	<block>|<statement>
+    */
     fn do_while_stat(&mut self) {
         // 进入do作用域
         self.sym_tab.enter();
 
         self.match_tag(KwDo);
-        self.block();
+        if equal_tag(&self.look, LBRACK) {
+            self.block();
+        } else {
+            self.statement();
+        }
+
         if !self.match_tag(KwWhile) {
             self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), LparenLost, LparenWrong);
         }
@@ -235,7 +628,7 @@ impl<'a> Parser<'a> {
         // 离开do作用域
         self.sym_tab.leave();
 
-        self.altexpr();
+        self.alt_expr();
 
         if !self.match_tag(RPAREN) {
             self.recovery(equal_tag(&self.look, SEMICON), RparenLost, RparenWrong);
@@ -245,6 +638,9 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /*
+	    <ifstat>			->	rsv_if lparen<expr>rparen<block><elsestat>
+    */
     fn if_stat(&mut self) {
         self.sym_tab.enter();
 
@@ -253,7 +649,7 @@ impl<'a> Parser<'a> {
                 self.recovery(expr_first(&self.look), LparenLost, LparenWrong);
             }
 
-            self.altexpr();
+            self.expr();
 
             if !self.match_tag(RPAREN) {
                 self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
@@ -261,8 +657,15 @@ impl<'a> Parser<'a> {
         }
 
         self.sym_tab.leave();
+
+        if equal_tag(&self.look, KwElse) {
+            self.else_stat();
+        }
     }
 
+    /*
+	    <elsestat>		-> 	rsv_else<block>|^
+    */
     fn else_stat(&mut self) {
         if self.match_tag(KwElse) {
             self.sym_tab.enter();
@@ -277,6 +680,9 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /*
+	    <switchstat>	-> 	rsv_switch lparen <expr> rparen lbrac <casestat> rbrac
+    */
     fn switch_stat(&mut self) {
         self.sym_tab.enter();
 
@@ -284,6 +690,8 @@ impl<'a> Parser<'a> {
             if !self.match_tag(LPAREN) {
                 self.recovery(expr_first(&self.look), RparenLost, RparenWrong);
             }
+
+            self.expr();
 
             if !self.match_tag(RPAREN) {
                 self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
@@ -293,6 +701,8 @@ impl<'a> Parser<'a> {
                 self.recovery(equal_tag(&self.look, KwCase) || equal_tag(&self.look, KwDefault), LbraceLost, LbraceWrong);
             }
 
+            self.case_stat();
+
             if !self.match_tag(RBRACE) {
                 self.recovery(type_first(&self.look) || statement_first(&self.look), RbraceLost, RbraceWrong);
             }
@@ -301,22 +711,42 @@ impl<'a> Parser<'a> {
         self.sym_tab.leave();
     }
 
+    /*
+	    <casestat> 		-> 	rsv_case <caselabel> colon <subprogram><casestat>
+										| rsv_default colon <subprogram>
+    */
     fn case_stat(&mut self) {
         if self.match_tag(KwCase) {
-
+            self.case_label();
+            if !self.match_tag(COLON) {
+                self.recovery(type_first(&self.look) || statement_first(&self.look), ColonLost, ColonWrong);
+            }
+            self.sym_tab.enter();
+            self.subprogram();
+            self.sym_tab.leave();
+            self.case_stat();
         } else if self.match_tag(KwDefault) {
             if !self.match_tag(COLON) {
                 self.recovery(type_first(&self.look) || statement_first(&self.look), ColonLost, ColonWrong);
             }
             self.sym_tab.enter();
-            // subprogram
+            self.subprogram();
             self.sym_tab.leave();
         }
+    }
+
+    /*
+	    <caselabel>		->	<literal>
+    */
+    fn case_label(&mut self) -> Option<Box<Var>> {
+        self.literal()
     }
 }
 
 impl<'a> Parser<'a> {
-
+    /*
+	    <init>				->	assign <expr>|^
+    */
     fn init(&mut self, ext: bool, t: Tag, ptr: bool, name: String) -> Box<Var>{
         let mut init_val: Option<Box<Var>> = None;
         if self.match_tag(ASSIGN) {
@@ -353,7 +783,30 @@ impl<'a> Parser<'a> {
     }
 
     /*
-	<defdata>			->	ident <varrdef>|mul ident <init>
+	    <deflist>			->	comma <defdata> <deflist>| semicon
+    */
+    fn deflist(&mut self, ext: bool, t: Tag) {
+        if self.match_tag(COMMA) {  // 下一个声明
+            let v = self.defdata(ext, t);
+            self.sym_tab.add_var(v);
+            self.deflist(ext, t);
+        } else if !self.match_tag(SEMICON) {
+            // 出错了
+            // 不是最后一个声明
+            if equal_tag(&self.look, ID) || equal_tag(&self.look, MUL) {
+                self.recovery(true, CommaLost, ColonWrong);
+                let v = self.defdata(ext, t);
+                self.sym_tab.add_var(v);
+                self.deflist(ext, t);
+            } else {
+                self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, KwExtern) || equal_tag(&self.look, RBRACK),
+                             SemiconLost, SemiconWrong);
+            }
+        }
+    }
+
+    /*
+	    <defdata>			->	ident <varrdef>|mul ident <init>
     */
     fn defdata(&mut self, ext: bool, t: Tag) -> Box<Var> {
         let mut name = String::new();
@@ -381,14 +834,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn deflist(&mut self, ext: bool, t: Tag) {
-
-    }
-
     /*
-	<idtail>			->	<varrdef><deflist>|lparen <para> rparen <funtail>
+	    <idtail>			->	<varrdef><deflist>|lparen <para> rparen <funtail>
     */
-    fn idtail(&mut self, ext: bool, t: Tag, name: String) {
+    fn id_tail(&mut self, ext: bool, t: Tag, ptr: bool, name: String) {
 
         if self.match_tag(LPAREN) {     // 函数
             // 进入作用域
@@ -403,21 +852,24 @@ impl<'a> Parser<'a> {
             // 离开作用域
             self.sym_tab.leave();
         } else {
-            let v = self.varrdef(ext, t, false, name);
+            let v = self.varrdef(ext, t, ptr, name);
             self.sym_tab.add_var(v);
             self.deflist(ext, t);
         }
     }
+}
 
+impl<'a> Parser<'a> {
     /*
-	    <funtail>			->	<block>|semicon
+        <funtail>			->	<block>|semicon
     */
     fn fun_tail(&mut self, f: Box<Fun>) {
-        if self.match_tag(SEMICON) {    // 函数声明
-            // self.sym_tab;
+        if self.match_tag(SEMICON) {        // 函数声明
+            self.sym_tab.dec_fun(f);
         } else {    // 函数定义
-
+            self.sym_tab.def_fun(f);        // 函数定义
             self.block();
+            self.sym_tab.end_def_fun();     // 结束函数定义
         }
     }
 
@@ -426,7 +878,7 @@ impl<'a> Parser<'a> {
     */
     fn para(&mut self, para_list: &mut Vec<Box<Var>>) {
         if !equal_tag(&self.look, RPAREN) {
-            let t  = self.para_type();
+            let t  = self.var_type();
             let v = self.para_data(t);
 
             self.sym_tab.add_var(v.clone());
@@ -440,7 +892,7 @@ impl<'a> Parser<'a> {
     */
     fn para_list(&mut self, para_list: &mut Vec<Box<Var>>) {
         if self.match_tag(COMMA) {  // 下一个参数
-            let t = self.para_type();
+            let t = self.var_type();
             let v = self.para_data(t);
             self.sym_tab.add_var(v.clone());
             para_list.push(v.clone());
@@ -496,22 +948,6 @@ impl<'a> Parser<'a> {
         }
 
         Box::new(Var::new_pointer(self.sym_tab.get_scope_path(), false, t, false, name, None))
-    }
-
-    /*
-	    <type>				->	rsv_int|rsv_char|rsv_bool|rsv_void
-    */
-    fn para_type(&mut self) -> Tag {
-        let mut tmp: Tag = KwInt;  // 默认类型
-
-        if type_first(&self.look) {
-            tmp = self.look.get_tag();
-            self.move_token();
-        } else {
-            self.recovery(equal_tag(&self.look, ID) || equal_tag(&self.look, MUL), TypeLost, TypeWrong);
-        }
-
-        tmp
     }
 }
 
