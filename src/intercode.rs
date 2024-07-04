@@ -32,12 +32,12 @@ impl InterInst {
     }
 
     // 一般运算指令
-    pub(crate) fn new_common(op: Operator, rs: Box<Var>, arg1: Box<Var>, arg2: Option<Box<Var>>) -> Self {
+    pub(crate) fn new_common(op: Operator, rs: Box<Var>, arg1: Option<Box<Var>>, arg2: Option<Box<Var>>) -> Self {
         let mut inst = InterInst::init();
 
         inst.set_op(op);
         inst.set_result(Some(rs));
-        inst.set_arg1(Some(arg1));
+        inst.set_arg1(arg1);
         inst.set_arg2(arg2);
 
         inst
@@ -80,7 +80,7 @@ impl InterInst {
     pub(crate) fn new_jump(op: Operator, tar: Option<Box<InterInst>>, arg1: Option<Box<Var>>, arg2: Option<Box<Var>>) -> Self {
         let mut inst = InterInst::init();
         inst.set_op(op);
-        inst.set_target(Some(tar));
+        inst.set_target(tar);
         inst.set_arg1(arg1);
         inst.set_arg2(arg2);
         inst
@@ -106,6 +106,14 @@ impl InterInst {
 
     pub(crate) fn set_label(&mut self, label: String) {
         self.label = label;
+    }
+
+    pub(crate) fn set_fun(&mut self, fun: Box<Fun>) {
+        self.fun = Some(fun.clone());
+    }
+
+    pub(crate) fn set_target(&mut self, target: Option<Box<InterInst>>) {
+        self.target = target;
     }
 }
 

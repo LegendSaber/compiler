@@ -164,13 +164,27 @@ impl Var {
     }
 
     // 拷贝一个临时变量
-    pub(crate) fn new_temp(sp: Vec<i32>, v: Box<Var>) -> Self {
+    pub(crate) fn new_copy_temp(sp: Vec<i32>, v: Box<Var>) -> Self {
         let mut var = Var::new();
 
         var.clear();
         var.set_scope_path(sp);
         var.set_type(v.get_type());
         var.set_ptr(v.get_ptr() || v.get_array());
+        var.set_name("".to_string());
+        var.set_left(false);
+
+        var
+    }
+
+    // 临时变量
+    pub(crate) fn new_temp(sp: Vec<i32>, t: Tag, ptr: bool) -> Self {
+        let mut var = Var::new();
+
+        var.clear();
+        var.set_scope_path(sp);
+        var.set_type(t);
+        var.set_ptr(ptr);
         var.set_name("".to_string());
         var.set_left(false);
 

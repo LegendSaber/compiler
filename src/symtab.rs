@@ -8,6 +8,7 @@ pub(crate) const ZERO: Option<Box<Var>> = None;
 pub(crate) const ONE: Option<Box<Var>> = None;
 pub(crate) const FOUR: Option<Box<Var>> = None;
 
+#[derive(Clone)]
 pub struct SymTab {
     // 声明记录顺序
     var_list: Vec<String>,  // 记录变量的添加顺序
