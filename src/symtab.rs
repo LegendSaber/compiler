@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::common::SemError::{ExternFunDef, FunCallErr, FunDecErr, FunReDef, FunUnDec, VarReDef, VarUnDec};
+use crate::intercode::InterInst;
 use crate::symbol::{Fun, Var, sem_error};
 
 pub(crate) const VOID_VAR: Option<Box<Var>> = None;
@@ -180,5 +181,17 @@ impl SymTab {
         }
         sem_error(FunUnDec as usize, &name);
         None
+    }
+}
+
+impl SymTab {
+    pub(crate) fn add_inst(&mut self, inst: Box<InterInst>) {
+        if let Some(cur_fun) = &mut self.cur_fun {
+            cur_fun.add_inst(inst);
+        }
+    }
+
+    pub(crate) fn get_cur_fun(&self) -> Option<Box<Fun>> {
+        self.cur_fun.clone()
     }
 }

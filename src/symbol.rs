@@ -2,6 +2,7 @@ use crate::plat::STACK_BASE;
 use crate::common::{SemError, Tag};
 use crate::common::SemError::VoidVar;
 use crate::common::Tag::{KwChar, KwInt, KwVoid};
+use crate::intercode::{InterCode, InterInst};
 use crate::token::TokenType;
 use crate::symtab::{FOUR, ONE, VOID_VAR};
 
@@ -128,7 +129,6 @@ impl Var {
         var
     }
 
-
 	// 常量,不涉及作用域的变化，字符串存储在字符串表，其他常量作为初始值(使用完删除)
     pub(crate) fn new_const(lt: &TokenType) -> Self {
         let mut var = Var::new();
@@ -159,6 +159,20 @@ impl Var {
 
             }
         }
+
+        var
+    }
+
+    // 拷贝一个临时变量
+    pub(crate) fn new_temp(sp: Vec<i32>, v: Box<Var>) -> Self {
+        let mut var = Var::new();
+
+        var.clear();
+        var.set_scope_path(sp);
+        var.set_type(v.get_type());
+        var.set_ptr(v.get_ptr() || v.get_array());
+        var.set_name("".to_string());
+        var.set_left(false);
 
         var
     }
@@ -223,6 +237,16 @@ impl Var {
     */
     pub(crate) fn is_base(&self) -> bool {
         !self.is_ptr && !self.is_array
+    }
+
+    // 是void
+    pub(crate) fn is_void(&self) -> bool {
+        self.get_type() == KwVoid
+    }
+
+    // 是引用类型
+    pub(crate) fn is_ref(&self) -> bool {
+        !self.is_ptr
     }
 }
 
@@ -333,6 +357,10 @@ impl Var {
         }
     }
 
+    pub(crate) fn get_array(&self) -> bool {
+        self.is_array
+    }
+
     pub(crate) fn set_offset(&mut self, off: isize) {
         self.offset = off;
     }
@@ -341,22 +369,34 @@ impl Var {
         self.offset
     }
 
+
+    // 设置指针变量
+    pub(crate) fn set_pointer(&mut self, p: Box<Var>) {
+        self.ptr = Some(p);
+    }
+
+    // 获取指针变量
+    pub(crate) fn get_pointer(&self) -> Option<Box<Var>> {
+        self.ptr.clone()
+    }
 }
 
 #[derive(Clone)]
 pub struct Fun {
-    externed: bool,                  // 声明或定义
-    return_type: Tag,                // 返回类型
-    name: String,                    // 函数名称
-    para_var: Vec<Box<Var>>,                // 参数列表
+    externed: bool,                          // 声明或定义
+    return_type: Tag,                        // 返回类型
+    name: String,                            // 函数名称
+    para_var: Vec<Box<Var>>,                 // 参数列表
 
     // 临时变量地址分配
-    max_depth: i32,                  // 栈的最大深度，初始0,标识函数栈分配的最大空间
-    cur_esp:   i32,                  // 当前栈指针位置，初始化为0，即ebp存储点
-    relocated: bool,                 // 栈帧重定位标记
+    max_depth: i32,                          // 栈的最大深度，初始0,标识函数栈分配的最大空间
+    cur_esp:   i32,                          // 当前栈指针位置，初始化为0，即ebp存储点
+    relocated: bool,                         // 栈帧重定位标记
 
     // 作用域管理
-    scope_esp: Vec<i32>,             // 作用域栈指针位置
+    scope_esp: Vec<i32>,                     // 作用域栈指针位置
+    inter_code: Option<InterCode>,           // 中间代码
+    return_point: Option<Box<InterInst>>     // 返回点
 }
 
 impl Fun {
@@ -435,6 +475,8 @@ impl Fun {
             cur_esp: STACK_BASE,
             relocated: false,
             scope_esp: vec![0],
+            inter_code: None,
+            return_point: None,
         }
     }
 
@@ -452,5 +494,26 @@ impl Fun {
 
     pub(crate) fn get_extern(&self) -> bool {
         self.externed
+    }
+
+    pub(crate) fn get_type(&self) -> Tag {
+        self.return_type
+    }
+}
+
+impl Fun {
+    // 增加一条中间代码
+    pub(crate) fn add_inst(&mut self, inst: Box<InterInst>) {
+        if let Some(inter_code) = &mut self.inter_code {
+            inter_code.add_inst(inst);
+        }
+    }
+
+    pub(crate) fn set_return_point(&mut self, inst: Option<Box<InterInst>>) {
+        self.return_point = inst;
+    }
+
+    pub(crate) fn get_return_point(&self) -> Option<Box<InterInst>> {
+        self.return_point.clone()
     }
 }

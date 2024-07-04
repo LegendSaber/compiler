@@ -7,6 +7,8 @@ mod parser;
 mod symtab;
 mod symbol;
 mod plat;
+mod gen_ir;
+mod intercode;
 
 use failure;
 

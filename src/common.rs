@@ -103,3 +103,28 @@ pub enum SemError {
     ContinueErr,				//continue不在循环中
     ReturnErr                    //return语句和函数返回值类型不匹配
 }
+
+// 中间代码操作符枚举类型
+#[derive(Clone)]
+pub enum Operator {
+    // 占位指令,默认值
+    OpNop,
+    //声明指令
+    OpDec,
+    // 函数入口与出口
+    OpEntry, OpExit,
+    // 赋值语句
+    OpAs,
+    // 算数运算
+    OpAdd, OpSub, OpMul, OpDiv, OpMod, OpNeg,
+    // 比较运算
+    OpGt, OpGe, OpLt, OpLe, OpEqu, OpNe,
+    // 逻辑运算
+    OpAnd, OpOr, OpNot,
+    // 指针运算
+    OpLea, OpSet, OpGet,
+    // 跳转指令
+    OpJmp, OpJt, OpJf, OpJne,
+    // 函数调用
+    OpArg, OpProc, OpCall, OpRet, OpRetv,
+}

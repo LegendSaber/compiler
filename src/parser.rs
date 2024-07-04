@@ -1,5 +1,6 @@
 use crate::common::SynError::{self, ColonLost, ColonWrong, CommaLost, IdLost, IdWrong, LbraceLost, LbraceWrong, LparenLost, LparenWrong, NumLost, NumWrong, RbraceLost, RbraceWrong, RbrackLost, RparenLost, RparenWrong, SemiconLost, SemiconWrong, TypeLost, TypeWrong};
 use crate::common::Tag::{self, CH, DEC, ID, INC, KwWhile, LBRACE, LEA, LPAREN, MUL, NOT, NUM, RPAREN, STR, SUB, KwFor, KwDo, KwIf, KwSwitch, KwBreak, SEMICON, KwInt, KwVoid, KwChar, RBRACE, KwContinue, KwReturn, END, ASSIGN, KwElse, KwCase, KwDefault, COLON, LBRACK, RBRACK, COMMA, OR, AND, GT, GE, LT, ADD, NEQU, EQU, LE, DIV, KwExtern, MOD};
+use crate::gen_ir::GenIR;
 use crate::lexer::Lexer;
 use crate::scanner::Scanner;
 use crate::symbol::{Fun, Var};
@@ -27,6 +28,7 @@ pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
     look: TokenType,
     sym_tab: &'a mut SymTab,
+    ir: Option<Box<GenIR>>,
 }
 
 impl<'a> Parser<'a> {
@@ -35,6 +37,7 @@ impl<'a> Parser<'a> {
             lexer,
             look: token_type,
             sym_tab,
+            ir: None,
         }
     }
 
@@ -78,8 +81,8 @@ impl<'a> Parser<'a> {
     }
 
     /*
-<segment>			->	rsv_extern <type><def>|<type><def>
-*/
+        <segment>			->	rsv_extern <type><def>|<type><def>
+    */
     fn segment(&mut self) {
         let ext = self.match_tag(KwExtern);
         let t = self.var_type();
@@ -167,6 +170,7 @@ impl<'a> Parser<'a> {
     }
 }
 
+// 表达式
 impl <'a> Parser<'a> {
     /*
     	<altexpr>			->	<expr>|^
@@ -175,7 +179,7 @@ impl <'a> Parser<'a> {
         return if expr_first(&self.look) {
             self.expr()
         } else {
-            Var::get_void()
+            Var::get_void()     // 返回特殊void变量
         }
 
     }
@@ -483,6 +487,7 @@ impl <'a> Parser<'a> {
     }
 }
 
+// 语句
 impl<'a> Parser<'a> {
     /*
 	    <statement>		->	<altexpr>semicon
@@ -513,6 +518,9 @@ impl<'a> Parser<'a> {
             },
             KwReturn => {
                 self.move_token();
+                if let Some(mut ir) = self.ir.clone() {
+                    ir.gen_return(self.alt_expr()); // 产生return语句
+                }
                 if !self.match_tag(SEMICON) {
                     self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
                 }
@@ -612,7 +620,7 @@ impl<'a> Parser<'a> {
         self.sym_tab.enter();
 
         self.match_tag(KwDo);
-        if equal_tag(&self.look, LBRACK) {
+        if equal_tag(&self.look, LBRACE) {
             self.block();
         } else {
             self.statement();
@@ -743,6 +751,7 @@ impl<'a> Parser<'a> {
     }
 }
 
+// 声明与定义
 impl<'a> Parser<'a> {
     /*
 	    <init>				->	assign <expr>|^
@@ -859,6 +868,7 @@ impl<'a> Parser<'a> {
     }
 }
 
+// 函数
 impl<'a> Parser<'a> {
     /*
         <funtail>			->	<block>|semicon
