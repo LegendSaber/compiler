@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 use lazy_static::lazy_static;
-use crate::common::Operator::{OpAdd, OpAnd, OpAs, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpRet, OpRetv, OpSet, OpSub};
+use log::info;
+use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
 use crate::common::SemError::{ArrTypeErr, AssignTypeErr, ExprIsBase, ExprIsVoid, ExprNotBase, ExprNotLeftVal, ReturnErr};
 use crate::common::Tag;
 use crate::common::Tag::{OR, AND, EQU, NEQU, ADD, SUB, GT, GE, LT, LE, MUL, DIV, MOD, LEA, INC, DEC, NOT};
@@ -52,6 +53,20 @@ impl GenIR {
 }
 
 impl GenIR {
+
+    // 函数调用
+    pub(crate) fn gen_para(&mut self, arg: Box<Var>) {  // 参数传递语句
+        let mut arg = arg.clone();
+        if arg.is_ref() {
+            arg = self.gen_assign(arg);
+        }
+
+        let inst = Box::new(InterInst::new_param(OpArg, arg));
+        self.sym_tab.add_inst(inst);
+    }
+}
+
+impl GenIR {
     // 产生特殊语句
 
     // 产生函数入口语句
@@ -97,6 +112,34 @@ impl GenIR {
             }
         }
     }
+
+    // 函数调用语句
+    pub(crate) fn gen_call(&mut self, fun: Option<Box<Fun>>, args: Vec<Box<Var>>) -> Option<Box<Var>> {
+        if fun.is_none() {
+            return None;
+        }
+
+        for i in (0..args.len()).rev() {
+            // 逆向传递实际参数
+            self.gen_para(args[i].clone());
+        }
+
+        let fun = fun.unwrap();
+        if fun.get_type() == KwVoid {
+            // 中间代码fun()
+            let inst = Box::new(InterInst::new_call(OpProc, fun.clone(), None));
+            self.sym_tab.add_inst(inst);
+
+            Var::get_void()
+        } else {
+            let ret = Box::new(Var::new_temp(self.sym_tab.get_scope_path(), fun.get_type(), false));
+            let inst = Box::new(InterInst::new_call(OpCall, fun.clone(), Some(ret.clone())));
+            self.sym_tab.add_inst(inst);
+            self.sym_tab.add_var(ret.clone());
+            Some(ret)
+        }
+    }
+
 }
 
 impl GenIR {
