@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 use lazy_static::lazy_static;
-use log::info;
-use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
+use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
 use crate::common::SemError::{ArrTypeErr, AssignTypeErr, ExprIsBase, ExprIsVoid, ExprNotBase, ExprNotLeftVal, ReturnErr};
 use crate::common::Tag;
 use crate::common::Tag::{OR, AND, EQU, NEQU, ADD, SUB, GT, GE, LT, LE, MUL, DIV, MOD, LEA, INC, DEC, NOT};
@@ -170,11 +169,11 @@ impl GenIR {
 
         // 先处理(*p)变量
         if lval.is_ref() {
-            lval = self.gen_assign(lval.clone()).unwrap();
+            lval = self.gen_assign(lval.clone());
         }
 
         if rval.is_ref() {
-            rval = self.gen_assign(rval.clone()).unwrap();
+            rval = self.gen_assign(rval.clone());
         }
 
         let ret = match opt {
@@ -229,15 +228,15 @@ impl GenIR {
 
         let ret = match opt {
             LEA => self.gen_lea(val.clone()),
-            MUL => self.gen_ptr(val.clone()),
+            MUL => Some(self.gen_ptr(val.clone())),
             INC => self.gen_incl(val.clone()),
             DEC => self.gen_decl(val.clone()),
             NOT => self.gen_not(val.clone()),
             SUB => self.gen_minus(val.clone()),
-            _ => val.clone(),
+            _ => Some(val.clone()),
         };
 
-        Some(ret)
+        ret
     }
 
     // 右单目运算语句
@@ -258,14 +257,14 @@ impl GenIR {
             return Some(val.clone());
         }
 
-        let mut ret = val.clone();
+        let mut ret = Some(val.clone());
         if opt == INC {
             ret = self.gen_incr(val.clone());
         } else if opt == DEC {
             ret = self.gen_decr(val.clone());
         }
 
-        Some(ret)
+        ret
     }
 
 
@@ -298,7 +297,7 @@ impl GenIR {
         let tmp = Box::new(Var::new_copy_temp(self.sym_tab.get_scope_path(), val.clone()));   // 拷贝变量信息
 
         let t = tmp.clone();
-        let mut inst;
+        let inst;
         if val.is_ref() {
             // 中间代码tmp = *(val->ptr)
             inst = Box::new(InterInst::new_common(OpGet, t, val.get_pointer(), None));
@@ -324,7 +323,7 @@ impl GenIR {
             return rval;
         }
 
-        let mut r = None;
+        let r;
         // 考虑右值*p
         if rval.is_ref() {
             if !lval.is_ref() {
@@ -338,7 +337,7 @@ impl GenIR {
             }
         }
 
-        let mut inst ;
+        let inst ;
         // 赋值运算
         if lval.is_ref() {
             // 中间代码*(lval->ptr)=rval
@@ -448,13 +447,13 @@ impl GenIR {
         // 指针和数组只能和基本类型相加
         if (lval.get_array() || lval.get_ptr()) && rval.is_base() {
             tmp = Box::new(Var::new_copy_temp(self.sym_tab.get_scope_path(), lval.clone()));
-            let step = Var::get_step(lval);
+            let step = Var::get_step(lval.clone());
             if let Some(s) = step {
                 rval = self.gen_mul(rval, s);
             }
         } else if rval.is_base() && (rval.get_array() || rval.get_ptr()) {
             tmp = Box::new(Var::new_copy_temp(self.sym_tab.get_scope_path(), rval.clone()));
-            let stop = Var::get_step(rval);
+            let stop = Var::get_step(rval.clone());
             if let Some(s) = stop {
                 lval = self.gen_mul(lval, s);
             }
@@ -477,7 +476,7 @@ impl GenIR {
     // 减法运算符
     pub(crate) fn gen_sub(&mut self, lval: Box<Var>, rval: Box<Var>) -> Box<Var> {
         let tmp;
-        let mut lval = lval.clone();
+        let lval = lval.clone();
         let mut rval = rval.clone();
 
         if !rval.is_base() {
@@ -485,7 +484,7 @@ impl GenIR {
             tmp = lval.clone();
         } else if lval.get_array() || lval.get_ptr() {
             // 指针和数组
-            tmp = Box::new(Var::new_copy_temp(self.sym_tab.get_scope_path(), lval));
+            tmp = Box::new(Var::new_copy_temp(self.sym_tab.get_scope_path(), lval.clone()));
             let step = Var::get_step(lval.clone());
             if let Some(s) = step {
                 rval = self.gen_mul(rval.clone(), s);
@@ -558,7 +557,7 @@ impl GenIR {
     }
 
     // 取址语句
-    pub(crate) fn get_lea(&mut self, val: Box<Var>) -> Option<Box<Var>> {
+    pub(crate) fn gen_lea(&mut self, val: Box<Var>) -> Option<Box<Var>> {
         return if !val.get_left() {
             sem_error(ExprNotLeftVal as usize, ""); // 不能取地址
             Some(val)
@@ -566,7 +565,7 @@ impl GenIR {
             return if val.is_ref() {
                 val.get_pointer()
             } else {
-                let mut tmp = Box::new(Var::new_temp(self.sym_tab.get_scope_path(), val.get_type(), true));
+                let tmp = Box::new(Var::new_temp(self.sym_tab.get_scope_path(), val.get_type(), true));
 
                 self.sym_tab.add_var(tmp.clone());
 
@@ -579,7 +578,7 @@ impl GenIR {
     }
 
     // 取反
-    pub(crate) fn get_not(&mut self, val: Box<Var>) -> Option<Box<Var>> {
+    pub(crate) fn gen_not(&mut self, val: Box<Var>) -> Option<Box<Var>> {
         // 生成整数
         let tmp = Box::new(Var::new_temp(self.sym_tab.get_scope_path(), KwInt, false));
 
@@ -591,7 +590,7 @@ impl GenIR {
     }
 
     // 取负
-    pub(crate) fn get_minus(&mut self, val: Box<Var>) -> Option<Box<Var>> {
+    pub(crate) fn gen_minus(&mut self, val: Box<Var>) -> Option<Box<Var>> {
         if !val.is_base() {
             sem_error(ExprNotBase as usize, "");
             return Some(val.clone());
@@ -607,7 +606,7 @@ impl GenIR {
     }
 
     // 左自加
-    pub(crate) fn get_incl(&mut self, val: Box<Var>) -> Option<Box<Var>> {
+    pub(crate) fn gen_incl(&mut self, val: Box<Var>) -> Option<Box<Var>> {
         if !val.get_left() {
             sem_error(ExprNotLeftVal as usize, "");
             return Some(val.clone());
@@ -615,7 +614,7 @@ impl GenIR {
 
         if val.is_ref() {                                                       // ++*p
             let t1 = self.gen_assign(val.clone());                   // t1 = *p
-            let step = Var::get_step(val);
+            let step = Var::get_step(val.clone());
             if let Some(s) = step {
                 let t2 = self.gen_add(t1, s);                        // t2 = t1 + 1
                 return Some(self.gen_assign_stmt(val.clone(), t2.clone()));     // *p = t2
@@ -637,7 +636,7 @@ impl GenIR {
 
         if val.is_ref() {                                                          // ++*p
             let t1 = self.gen_assign(val.clone());                      // t1 = *p
-            let step = Var::get_step(val);
+            let step = Var::get_step(val.clone());
             if let Some(s) = step {
                 let t2 = self.gen_sub(t1, s);                           // t2 = t1 + 1
                 return Some(self.gen_assign_stmt(val.clone(), t2.clone()));        // *p = t2
@@ -648,7 +647,7 @@ impl GenIR {
     }
 
     // 右自加
-    pub(crate) fn get_incr(&mut self, val: Box<Var>) -> Option<Box<Var>> {
+    pub(crate) fn gen_incr(&mut self, val: Box<Var>) -> Option<Box<Var>> {
         let tmp = self.gen_assign(val.clone());
 
         let inst = Box::new(InterInst::new_common(OpAdd, val.clone(), Some(val.clone()), Var::get_step(val.clone())));  // 中间代码val++
@@ -667,4 +666,42 @@ impl GenIR {
         Some(tmp)
     }
 
+}
+
+impl GenIR {
+    /* 产生复合语句 */
+
+    // 产生if头部
+    pub(crate) fn gen_if_head(&mut self, cond: Option<Box<Var>>) -> Box<InterInst> {
+        let _else = Box::new(InterInst::new_label());
+        if let Some(cond) = cond {
+            let mut cond = cond.clone();
+            if cond.is_ref() {
+                cond = self.gen_assign(cond);
+            }
+
+            let inst = Box::new(InterInst::new_jump(OpJf, Some(_else.clone()), Some(cond), None));
+            self.sym_tab.add_inst(inst);
+        }
+        _else
+    }
+
+    // 产生if尾部
+    pub(crate) fn gen_if_tail(&mut self, _else: Box<InterInst>) {
+        self.sym_tab.add_inst(_else);
+    }
+
+    // 产生else头部
+    pub(crate) fn gen_else_head(&mut self, _else: Box<InterInst>) -> Box<InterInst> {
+        let _exit = Box::new(InterInst::new_label());
+        let inst = Box::new(InterInst::new_jump(OpJmp, Some(_exit.clone()), None, None));
+        self.sym_tab.add_inst(inst);
+        self.sym_tab.add_inst(_else);
+        _exit
+    }
+
+    // 产生else尾部
+    pub(crate) fn gen_else_tail(&mut self, _exit: Box<InterInst>) {
+        self.sym_tab.add_inst(_exit);
+    }
 }

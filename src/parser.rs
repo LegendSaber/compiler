@@ -181,7 +181,6 @@ impl <'a> Parser<'a> {
         } else {
             Var::get_void()     // 返回特殊void变量
         }
-
     }
 
     /*
@@ -652,22 +651,51 @@ impl<'a> Parser<'a> {
     fn if_stat(&mut self) {
         self.sym_tab.enter();
 
+        let mut _else = None;
         if self.match_tag(KwIf) {
             if !self.match_tag(LPAREN) {
                 self.recovery(expr_first(&self.look), LparenLost, LparenWrong);
             }
 
-            self.expr();
+            let cond = self.expr();
+            if let Some(mut ir) = self.ir.clone() {
+                _else = Some(ir.gen_if_head(cond));
+            }
 
             if !self.match_tag(RPAREN) {
                 self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
             }
         }
 
+        if equal_tag(&self.look, LBRACE) {
+            self.block();
+        } else {
+            self.statement();
+        }
+
         self.sym_tab.leave();
 
         if equal_tag(&self.look, KwElse) {
+            let mut _exit = None;
+            if let Some(mut ir) = self.ir.clone() {
+                if let Some(_else) = _else {
+                    _exit = Some(ir.gen_else_head(_else));      // 有else
+                }
+            }
+
             self.else_stat();
+
+            if let Some(mut ir) = self.ir.clone() {
+                if let Some(_exit) = _exit {
+                    ir.gen_else_tail(_exit);      // 有else
+                }
+            }
+        } else {
+            if let Some(mut ir) = self.ir.clone() {
+                if let Some(_else) = _else {
+                    ir.gen_if_tail(_else);      // 无else
+                }
+            }
         }
     }
 
