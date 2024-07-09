@@ -1,3 +1,4 @@
+use std::os::windows::fs::OpenOptionsExt;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpJne, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
@@ -756,6 +757,116 @@ impl GenIR {
     // 产生case尾部
     pub(crate) fn gen_case_tail(&mut self, _case_exit: Box<InterInst>) {
         self.sym_tab.add_inst(_case_exit);
+    }
+
+    //  产生while循环头部
+    pub(crate) fn gen_while_head(&mut self) -> (Box<InterInst>, Box<InterInst>) {
+        let _while = Box::new(InterInst::new_label());
+
+        self.sym_tab.add_inst(_while.clone());
+
+        let _exit = Box::new(InterInst::new_label());
+        self.push(Some(_while.clone()), Some(_exit.clone()));
+
+        (_while, _exit)
+    }
+
+    // 产生while条件
+    pub(crate) fn gen_while_cond(&mut self, cond: Option<Box<Var>>, _exit: Option<Box<InterInst>>) {
+        if cond.is_some() {
+            let c;
+            if cond.is_void() {
+                c = Var::get_true();
+            } else {
+                c = self.gen_assign(cond.clone());
+            }
+            let inst = Box::new(InterInst::new_jump(OpJf, _exit, cond.clone(), None));
+            self.sym_tab.add_inst(inst);
+        }
+    }
+
+    // 产生while尾部
+    pub(crate) fn gen_while_tail(&mut self, _while: Box<InterInst>, _exit: Box<InterInst>) {
+        let inst = Box::new(InterInst::new_jump(OpJmp, Some(_while), None, None));
+        self.sym_tab.add_inst(inst);
+        self.sym_tab.add_inst(_exit);
+        self.pop();
+    }
+
+    // 产生do-while循环头部
+    pub(crate) fn gen_do_while_head(&mut self) -> (Box<InterInst>, Box<InterInst>){
+        let _do = Box::new(InterInst::new_label());
+        let _exit = Box::new(InterInst::new_label());
+
+        self.sym_tab.add_inst(_do.clone());
+
+        (_do, _exit)
+    }
+
+    // 产生do-while循环尾部
+    pub(crate) fn gen_do_while_tail(&mut self, cond: Box<Var>, _do: Box<InterInst>, _exit: Box<InterInst>) {
+        if cond.is_some() {
+            let cond = cond.unwrap();
+            let c;
+
+            if cond.is_void() {
+                c = Var::get_true();
+            } else {
+                c = Some(self.gen_assign(cond.clone()));
+            }
+        }
+
+        self.sym_tab.add_inst(_exit.unwrap());
+        self.pop();
+    }
+
+    // 产生for循环头部
+    pub(crate) fn gen_for_head(&mut self) -> (Box<InterInst>, Box<InterInst>) {
+        let _for = Box::new(InterInst::new_label());    // 产生for标签
+        let _exit = Box::new(InterInst::new_label());   // 产生exit标签
+
+        self.sym_tab.add_inst(_for.clone());
+        (_for, _exit)
+    }
+
+    // 产生for条件开始部分
+    pub(crate) fn gen_for_cond_begin(&mut self, cond: Option<Box<Var>>, _exit: Box<InterInst>) -> (Box<InterInst>, Box<InterInst>) {
+        let _block = Box::new(InterInst::new_label());
+        let _step = Box::new(InterInst::new_label());
+
+        if cond.is_some() {
+            let cond = cond.unwrap();
+            let c;
+            if cond.is_void() {
+                c = Var::get_true();
+            } else {
+                c = Some(self.gen_assign(cond.clone()));
+            }
+            let inst = Box::new(InterInst::new_jump(OpJf, Some(_exit.clone()), Some(cond.clone()), None));
+            self.sym_tab.add_inst(inst);
+            let inst = Box::new(InterInst::new_jump(OpJmp, Some(_block.clone()), None, None));
+            self.sym_tab.add_inst(inst);
+        }
+
+        self.sym_tab.add_inst(_step.clone());
+        self.push(Some(_step.clone()), Some(_exit.clone()));
+
+        (_block, _step)
+    }
+
+    // 产生for条件结束部分
+    pub(crate) fn gen_for_cond_end(&mut self, _for: Box<InterInst>, _block: Box<InterInst>) {
+        let inst = Box::new(InterInst::new_jump(OpJmp, Some(_for), None, None));
+        self.sym_tab.add_inst(inst);
+        self.sym_tab.add_inst(_block);
+    }
+
+    // 产生for尾部
+    pub(crate) fn gen_for_tail(&mut self, _for: Box<InterInst>, _block: Box<InterInst>) {
+        let inst = Box::new(InterInst::new_jump(OpJmp, Some(_for.clone()), None, None));
+        self.sym_tab.add_inst(inst);
+        self.sym_tab.add_inst(_block);
+        self.pop();
     }
 
 }

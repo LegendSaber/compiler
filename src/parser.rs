@@ -540,12 +540,16 @@ impl<'a> Parser<'a> {
     fn while_stat(&mut self) {
         self.sym_tab.enter();
 
+        let mut ir = self.ir.clone().unwrap();
+        let (_while, _exit) = ir.gen_while_head();
+
         self.match_tag(KwWhile);
         if !self.match_tag(LPAREN) {
             self.recovery(expr_first(&self.look) || equal_tag(&self.look, RPAREN), TypeLost, TypeWrong);
         }
 
-        self.alt_expr();
+        let cond = self.alt_expr();
+        ir.gen_while_cond(cond, Some(_exit.clone()));
 
         if !self.match_tag(RPAREN) {
             self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
@@ -558,6 +562,7 @@ impl<'a> Parser<'a> {
             self.statement();
         }
 
+        ir.gen_while_tail(_while.clone(), _exit.clone());
         self.sym_tab.leave();
     }
 
@@ -568,28 +573,32 @@ impl<'a> Parser<'a> {
     fn for_stat(&mut self) {
         self.sym_tab.enter();
 
+        let mut ir = self.ir.clone().unwrap();
+
         if self.match_tag(KwFor) {
             if !self.match_tag(LPAREN) {
                 self.recovery(type_first(&self.look) || expr_first(&self.look), LparenLost, LparenWrong);
             }
 
             self.for_init();
-
+            let (_for, _exit) = ir.gen_for_head();
             if !self.match_tag(SEMICON) {
                 self.recovery(expr_first(&self.look), SemiconLost, SemiconWrong);
             }
 
-            self.alt_expr();
+            let cond = self.alt_expr();
+            let (_block, _step) = ir.gen_for_cond_begin(cond, _exit.clone());
 
             if !self.match_tag(RPAREN) {
                 self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
             }
-
+            ir.gen_for_cond_end(_for, _block);
             if equal_tag(&self.look, LBRACE) {
                 self.block();
             } else {
                 self.statement();
             }
+            ir.gen_for_tail(_step, _exit);
         }
 
 
@@ -617,7 +626,8 @@ impl<'a> Parser<'a> {
     fn do_while_stat(&mut self) {
         // 进入do作用域
         self.sym_tab.enter();
-
+        let mut ir = self.ir.clone().unwrap();
+        let (_do, _exit) = ir.gen_do_while_head();
         self.match_tag(KwDo);
         if equal_tag(&self.look, LBRACE) {
             self.block();
@@ -635,7 +645,7 @@ impl<'a> Parser<'a> {
         // 离开do作用域
         self.sym_tab.leave();
 
-        self.alt_expr();
+        let cond = self.alt_expr().unwrap();
 
         if !self.match_tag(RPAREN) {
             self.recovery(equal_tag(&self.look, SEMICON), RparenLost, RparenWrong);
@@ -643,6 +653,8 @@ impl<'a> Parser<'a> {
         if !self.match_tag(SEMICON) {
             self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
         }
+
+        ir.gen_do_while_tail(cond, _do, _exit);
     }
 
     /*
@@ -733,7 +745,10 @@ impl<'a> Parser<'a> {
                 self.recovery(expr_first(&self.look), RparenLost, RparenWrong);
             }
 
-            self.expr();
+            let mut cond = self.expr().unwrap();
+            if let Some(mut ir) = self.ir.clone() {
+                cond = ir.gen_assign(cond);
+            }
 
             if !self.match_tag(RPAREN) {
                 self.recovery(equal_tag(&self.look, LBRACE), RparenLost, RparenWrong);
@@ -743,7 +758,7 @@ impl<'a> Parser<'a> {
                 self.recovery(equal_tag(&self.look, KwCase) || equal_tag(&self.look, KwDefault), LbraceLost, LbraceWrong);
             }
 
-            self.case_stat();
+            self.case_stat(Some(cond));
 
             if !self.match_tag(RBRACE) {
                 self.recovery(type_first(&self.look) || statement_first(&self.look), RbraceLost, RbraceWrong);
