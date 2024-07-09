@@ -1,4 +1,3 @@
-use std::os::windows::fs::OpenOptionsExt;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpJne, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
@@ -798,13 +797,14 @@ impl GenIR {
     // 产生while条件
     pub(crate) fn gen_while_cond(&mut self, cond: Option<Box<Var>>, _exit: Option<Box<InterInst>>) {
         if cond.is_some() {
+            let cond = cond.unwrap();
             let c;
             if cond.is_void() {
                 c = Var::get_true();
             } else {
-                c = self.gen_assign(cond.clone());
+                c = Some(self.gen_assign(cond.clone()));
             }
-            let inst = Box::new(InterInst::new_jump(OpJf, _exit, cond.clone(), None));
+            let inst = Box::new(InterInst::new_jump(OpJf, _exit, c, None));
             self.sym_tab.add_inst(inst);
         }
     }
@@ -828,7 +828,7 @@ impl GenIR {
     }
 
     // 产生do-while循环尾部
-    pub(crate) fn gen_do_while_tail(&mut self, cond: Box<Var>, _do: Box<InterInst>, _exit: Box<InterInst>) {
+    pub(crate) fn gen_do_while_tail(&mut self, cond: Option<Box<Var>>, _do: Box<InterInst>, _exit: Box<InterInst>) {
         if cond.is_some() {
             let cond = cond.unwrap();
             let c;
@@ -840,7 +840,7 @@ impl GenIR {
             }
         }
 
-        self.sym_tab.add_inst(_exit.unwrap());
+        self.sym_tab.add_inst(_exit);
         self.pop();
     }
 

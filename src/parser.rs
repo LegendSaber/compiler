@@ -672,7 +672,7 @@ impl<'a> Parser<'a> {
             self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
         }
 
-        ir.gen_do_while_tail(cond, _do, _exit);
+        ir.gen_do_while_tail(Some(cond), _do, _exit);
     }
 
     /*
