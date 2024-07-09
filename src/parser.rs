@@ -504,12 +504,18 @@ impl<'a> Parser<'a> {
             KwIf => self.if_stat(),
             KwSwitch => self.switch_stat(),
             KwBreak => {
+                if let Some(mut ir) = self.ir.clone() {
+                    ir.gen_break();
+                }
                 self.move_token();
                 if !self.match_tag(SEMICON) {
                     self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);
                 }
             },
             KwContinue => {
+                if let Some(mut ir) = self.ir.clone() {
+                    ir.gen_continue();
+                }
                 self.move_token();
                 if !self.match_tag(SEMICON) {
                     self.recovery(type_first(&self.look)|| statement_first(&self.look) || equal_tag(&self.look, RBRACE), SemiconLost, SemiconWrong);

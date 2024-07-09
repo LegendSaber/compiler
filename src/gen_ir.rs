@@ -2,7 +2,7 @@ use std::os::windows::fs::OpenOptionsExt;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpJne, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
-use crate::common::SemError::{ArrTypeErr, AssignTypeErr, ExprIsBase, ExprIsVoid, ExprNotBase, ExprNotLeftVal, ReturnErr};
+use crate::common::SemError::{ArrTypeErr, AssignTypeErr, BreakErr, ContinueErr, ExprIsBase, ExprIsVoid, ExprNotBase, ExprNotLeftVal, ReturnErr};
 use crate::common::Tag;
 use crate::common::Tag::{OR, AND, EQU, NEQU, ADD, SUB, GT, GE, LT, LE, MUL, DIV, MOD, LEA, INC, DEC, NOT};
 use crate::common::Tag::{ASSIGN, KwInt, KwVoid};
@@ -158,6 +158,30 @@ impl GenIR {
             self.sym_tab.add_inst(inst);
             self.sym_tab.add_var(ret.clone());
             Some(ret)
+        }
+    }
+
+    // 产生break语句
+    pub(crate) fn gen_break(&mut self) {
+        let tail = self.tails.last().unwrap();   // 取出跳出标签
+        if tail.is_some() {
+            let tail = tail.clone();
+            let inst = Box::new(InterInst::new_jump(OpJmp, tail, None, None));
+            self.sym_tab.add_inst(inst);
+        } else {
+            sem_error(BreakErr as usize, "");
+        }
+    }
+
+    // 产生continue语句
+    pub(crate) fn gen_continue(&mut self) {
+        let head = self.heads.last().unwrap();
+        if head.is_some() {
+            let head = head.clone().unwrap();
+            let inst = Box::new(InterInst::new_jump(OpJmp, Some(head), None, None));
+            self.sym_tab.add_inst(inst);
+        } else {
+            sem_error(ContinueErr as usize, "");
         }
     }
 
