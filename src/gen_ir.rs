@@ -257,7 +257,7 @@ impl GenIR {
     }
 
     // 左单目运算语句
-    pub(crate) fn get_one_op_left(&mut self, opt: Tag, val: Option<Box<Var>>) -> Option<Box<Var>> {
+    pub(crate) fn gen_one_op_left(&mut self, opt: Tag, val: Option<Box<Var>>) -> Option<Box<Var>> {
         if val.is_none() {
             return None;
         }
@@ -286,7 +286,7 @@ impl GenIR {
     }
 
     // 右单目运算语句
-    pub(crate) fn get_one_op_right(&mut self, opt: Tag, val: Option<Box<Var>>) -> Option<Box<Var>> {
+    pub(crate) fn gen_one_op_right(&mut self, val: Option<Box<Var>>, opt: Tag) -> Option<Box<Var>> {
         if val.is_none() {
             return None;
         }

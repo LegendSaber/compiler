@@ -327,7 +327,10 @@ impl <'a> Parser<'a> {
         return if equal_tag(&self.look, MUL) || equal_tag(&self.look, DIV) || equal_tag(&self.look, MOD) {
             let opt = self.muls();
             let rval = self.factor();
-            None
+            let mut ir = self.ir.clone().unwrap();
+            let result = ir.gen_two_op(lval, opt, rval);
+
+            self.item_tail(result)
         } else {
             lval
         }
@@ -349,7 +352,9 @@ impl <'a> Parser<'a> {
         return if equal_tag(&self.look, NOT) || equal_tag(&self.look, SUB) || equal_tag(&self.look, LEA) || equal_tag(&self.look, MUL) || equal_tag(&self.look, INC) || equal_tag(&self.look, DEC) {
             let opt = self.lop();
             let v = self.factor();
-            None
+            let mut ir = self.ir.clone().unwrap();
+
+            ir.gen_one_op_left(opt, v)
         } else {
             self.val()
         }
@@ -371,7 +376,9 @@ impl <'a> Parser<'a> {
         let v = self.elem();
         return if equal_tag(&self.look, INC) || equal_tag(&self.look, DEC) {
             let opt = self.rop();
-            None
+            let mut ir = self.ir.clone().unwrap();
+
+            ir.gen_one_op_right(v, opt)
         } else {
             v
         }
@@ -441,12 +448,17 @@ impl <'a> Parser<'a> {
                 self.recovery(lval_opr(&self.look), LbraceLost, LbraceWrong);
             }
             let array = self.sym_tab.get_var(name);
-            v = None;
+            let mut ir = self.ir.clone().unwrap();
+            v = ir.gen_array(array, index);
         } else if self.match_tag(LPAREN) {
             let mut args = Vec::new();
             self.real_arg(&mut args);
-
-            v = None
+            if !self.match_tag(RPAREN) {
+                self.recovery(rval_opr(&self.look), RparenLost, RparenWrong);
+            }
+            let function = self.sym_tab.get_fun(name, args.clone());
+            let mut ir = self.ir.clone().unwrap();
+            v = ir.gen_call(function, args);
         } else {
             v = self.sym_tab.get_var(name);
         }
