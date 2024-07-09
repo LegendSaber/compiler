@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use lazy_static::lazy_static;
-use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpJne, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
+use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpJne, OpJt, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
 use crate::common::SemError::{ArrTypeErr, AssignTypeErr, BreakErr, ContinueErr, ExprIsBase, ExprIsVoid, ExprNotBase, ExprNotLeftVal, ReturnErr};
 use crate::common::Tag;
 use crate::common::Tag::{OR, AND, EQU, NEQU, ADD, SUB, GT, GE, LT, LE, MUL, DIV, MOD, LEA, INC, DEC, NOT};
@@ -368,7 +368,7 @@ impl GenIR {
             return rval;
         }
 
-        let r;
+        let mut r = rval.clone();
         // 考虑右值*p
         if rval.is_ref() {
             if !lval.is_ref() {
@@ -378,7 +378,7 @@ impl GenIR {
                 return lval;
             } else {
                 // 中间代码*(lval->ptr)=*(rval->ptr),先处理右值
-                r  = Some(self.gen_assign(rval.clone()));
+                r  = self.gen_assign(rval.clone());
             }
         }
 
@@ -386,10 +386,10 @@ impl GenIR {
         // 赋值运算
         if lval.is_ref() {
             // 中间代码*(lval->ptr)=rval
-            inst = Box::new(InterInst::new_common(OpSet, rval.clone(), lval.get_pointer(), None));
+            inst = Box::new(InterInst::new_common(OpSet, r, lval.get_pointer(), None));
         } else {
             // 中间代码*(lval->ptr)=rval
-            inst = Box::new(InterInst::new_common(OpAs, lval.clone(), Some(rval.clone()), None));
+            inst = Box::new(InterInst::new_common(OpAs, lval.clone(), Some(r), None));
         }
         self.sym_tab.add_inst(inst);
 
@@ -838,6 +838,8 @@ impl GenIR {
             } else {
                 c = Some(self.gen_assign(cond.clone()));
             }
+            let inst = Box::new(InterInst::new_jump(OpJt, Some(_do), c, None));
+            self.sym_tab.add_inst(inst);
         }
 
         self.sym_tab.add_inst(_exit);
@@ -866,7 +868,7 @@ impl GenIR {
             } else {
                 c = Some(self.gen_assign(cond.clone()));
             }
-            let inst = Box::new(InterInst::new_jump(OpJf, Some(_exit.clone()), Some(cond.clone()), None));
+            let inst = Box::new(InterInst::new_jump(OpJf, Some(_exit.clone()), c, None));
             self.sym_tab.add_inst(inst);
             let inst = Box::new(InterInst::new_jump(OpJmp, Some(_block.clone()), None, None));
             self.sym_tab.add_inst(inst);

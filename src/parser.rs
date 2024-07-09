@@ -245,8 +245,10 @@ impl <'a> Parser<'a> {
     fn and_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
         return if self.match_tag(AND) {
             let rval = self.cmp_expr();
-            // self.andtail
-            None
+            let mut ir = self.ir.clone().unwrap();
+            let result = ir.gen_two_op(lval, AND, rval);
+
+            self.and_tail(result)
         } else {
             lval
         }
@@ -267,8 +269,9 @@ impl <'a> Parser<'a> {
         return if equal_tag(&self.look, GT) || equal_tag(&self.look, GE) || equal_tag(&self.look, LT) || equal_tag(&self.look, LE) || equal_tag(&self.look, EQU) || equal_tag(&self.look, NEQU) {
             let opt = self.cmps();
             let rval = self.alo_expr();
-            // self.cmptail
-            None
+            let mut ir = self.ir.clone().unwrap();
+            let result = ir.gen_two_op(lval, opt, rval);
+            self.cmp_tail(result)
         } else {
             lval
         }
@@ -297,7 +300,11 @@ impl <'a> Parser<'a> {
     fn alo_tail(&mut self, lval: Option<Box<Var>>) -> Option<Box<Var>> {
         return if equal_tag(&self.look, ADD) || equal_tag(&self.look, SUB) {
             let opt = self.adds();
-            None
+            let rval = self.item();
+            let mut ir = self.ir.clone().unwrap();
+
+            let result = ir.gen_two_op(lval, opt, rval);
+            self.alo_tail(result)
         } else {
             lval
         }
@@ -441,7 +448,7 @@ impl <'a> Parser<'a> {
 	    <idexpr>			->	lbrack <expr> rbrack|lparen<realarg>rparen|^
     */
     fn id_expr(&mut self, name: String) -> Option<Box<Var>> {
-        let mut v = None;
+        let v;
         if self.match_tag(LBRACK) {
             let index = self.expr();
             if !self.match_tag(RBRACK) {
