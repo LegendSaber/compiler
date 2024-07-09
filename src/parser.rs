@@ -722,6 +722,12 @@ impl<'a> Parser<'a> {
     fn switch_stat(&mut self) {
         self.sym_tab.enter();
 
+        let mut _exit = None;
+
+        if let Some(mut ir) = self.ir.clone() {
+            _exit = Some(ir.gen_switch_head());
+        }
+
         if self.match_tag(KwSwitch) {
             if !self.match_tag(LPAREN) {
                 self.recovery(expr_first(&self.look), RparenLost, RparenWrong);
@@ -744,6 +750,12 @@ impl<'a> Parser<'a> {
             }
         }
 
+        if let Some(mut ir) = self.ir.clone() {
+            if let Some(_exit) = _exit {
+                ir.gen_switch_tail(_exit);
+            }
+        }
+
         self.sym_tab.leave();
     }
 
@@ -751,16 +763,25 @@ impl<'a> Parser<'a> {
 	    <casestat> 		-> 	rsv_case <caselabel> colon <subprogram><casestat>
 										| rsv_default colon <subprogram>
     */
-    fn case_stat(&mut self) {
+    fn case_stat(&mut self, cond: Option<Box<Var>>) {
         if self.match_tag(KwCase) {
-            self.case_label();
+            let mut _case_exit = None;
+            let lb = self.case_label();
+            if let Some(mut ir) = self.ir.clone() {
+                _case_exit = Some(ir.gen_case_head(cond.clone(), lb));
+            }
             if !self.match_tag(COLON) {
                 self.recovery(type_first(&self.look) || statement_first(&self.look), ColonLost, ColonWrong);
             }
             self.sym_tab.enter();
             self.subprogram();
             self.sym_tab.leave();
-            self.case_stat();
+            if let Some(mut ir) = self.ir.clone() {
+                if let Some(_case_exit) = _case_exit {
+                    ir.gen_case_tail(_case_exit);
+                }
+            }
+            self.case_stat(cond);
         } else if self.match_tag(KwDefault) {
             if !self.match_tag(COLON) {
                 self.recovery(type_first(&self.look) || statement_first(&self.look), ColonLost, ColonWrong);

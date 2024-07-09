@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use lazy_static::lazy_static;
-use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
+use crate::common::Operator::{OpAdd, OpAnd, OpArg, OpAs, OpCall, OpDiv, OpEntry, OpEqu, OpExit, OpGe, OpGet, OpGt, OpJf, OpJmp, OpJne, OpLe, OpLea, OpLt, OpMod, OpMul, OpNe, OpNeg, OpNot, OpOr, OpProc, OpRet, OpRetv, OpSet, OpSub};
 use crate::common::SemError::{ArrTypeErr, AssignTypeErr, ExprIsBase, ExprIsVoid, ExprNotBase, ExprNotLeftVal, ReturnErr};
 use crate::common::Tag;
 use crate::common::Tag::{OR, AND, EQU, NEQU, ADD, SUB, GT, GE, LT, LE, MUL, DIV, MOD, LEA, INC, DEC, NOT};
@@ -19,7 +19,12 @@ lazy_static! {
 
 #[derive(Clone)]
 pub(crate) struct GenIR {
-    sym_tab: Box<SymTab>,
+    sym_tab: Box<SymTab>,   // 符号表
+
+    // break continue辅助标签列表
+    heads: Vec<Option<Box<InterInst>>>,
+    tails: Vec<Option<Box<InterInst>>>,
+
 }
 
 impl GenIR {
@@ -48,6 +53,22 @@ impl GenIR {
         }
 
         false
+    }
+}
+
+impl GenIR {
+    //
+
+    // 添加一个作用域
+    pub(crate) fn push(&mut self, head: Option<Box<InterInst>>, tail: Option<Box<InterInst>>) {
+        self.heads.push(head);
+        self.tails.push(tail);
+    }
+
+    // 删除一个作用域
+    pub(crate) fn pop(&mut self) {
+        self.heads.pop();
+        self.tails.pop();
     }
 }
 
@@ -704,4 +725,37 @@ impl GenIR {
     pub(crate) fn gen_else_tail(&mut self, _exit: Box<InterInst>) {
         self.sym_tab.add_inst(_exit);
     }
+
+    // 产生switch头部
+    pub(crate) fn gen_switch_head(&mut self) -> Box<InterInst> {
+        let _exit = Box::new(InterInst::new_label());
+
+        self.push(None, Some(_exit.clone()));
+
+        _exit
+    }
+
+    // 产生switch尾部
+    pub(crate) fn gen_switch_tail(&mut self, _exit: Box<InterInst>) {
+        self.sym_tab.add_inst(_exit);
+        self.pop();
+    }
+
+    // 产生case头部
+    pub(crate) fn gen_case_head(&mut self, cond: Option<Box<Var>>, lb: Option<Box<Var>>) -> Box<InterInst> {
+        let _case_exit = Box::new(InterInst::new_label());
+
+        if lb.is_some() {
+            let inst = Box::new(InterInst::new_jump(OpJne, Some(_case_exit.clone()), cond, lb));
+            self.sym_tab.add_inst(inst);
+        }
+
+        _case_exit
+    }
+
+    // 产生case尾部
+    pub(crate) fn gen_case_tail(&mut self, _case_exit: Box<InterInst>) {
+        self.sym_tab.add_inst(_case_exit);
+    }
+
 }
