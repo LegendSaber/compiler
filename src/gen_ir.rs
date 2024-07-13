@@ -28,6 +28,16 @@ pub(crate) struct GenIR {
 }
 
 impl GenIR {
+    pub(crate) fn new(sym_tab: Box<SymTab>) -> Self {
+        GenIR {
+            sym_tab,
+            heads: vec![],
+            tails: vec![],
+        }
+    }
+}
+
+impl GenIR {
     // 全局函数
 
     // 获取唯一名字的标签

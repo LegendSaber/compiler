@@ -5,7 +5,7 @@ use crate::lexer::Lexer;
 use crate::scanner::Scanner;
 use crate::symbol::{Fun, Var};
 use crate::symtab::SymTab;
-use crate::token::TokenType;
+use crate::token::{Num, TokenType};
 
 fn syn_error(scanner: &mut Scanner, code: usize, t: &TokenType)
 {
@@ -32,12 +32,12 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn new(lexer: &'a mut Lexer<'a>, token_type: TokenType, sym_tab: &'a mut SymTab) -> Self {
+    pub(crate) fn new(lexer: &'a mut Lexer<'a>, sym_tab: &'a mut SymTab, ir: Option<Box<GenIR>>) -> Self {
         Parser {
             lexer,
-            look: token_type,
+            look: TokenType::Num(Num::new(1900)),
             sym_tab,
-            ir: None,
+            ir,
         }
     }
 
@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
     }
 
     // 语法分析主程序
-    fn analyze(&mut self) {
+    pub(crate) fn analyze(&mut self) {
         self.move_token();      // 预先读入
         self.program();
     }

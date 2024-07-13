@@ -28,10 +28,17 @@ pub struct SymTab {
 impl SymTab {
 
     // 初始化符号表
-    pub(crate) fn new(&mut self) {
-        self.scope_id = 0;
-        self.cur_fun = None;
-        self.scope_path.push(0);
+    pub(crate) fn new() -> Self {
+        SymTab {
+            var_list: vec![],
+            fun_list: vec![],
+            var_tab: Default::default(),
+            str_tab: Default::default(),
+            fun_tab: Default::default(),
+            cur_fun: None,
+            scope_id: 0,
+            scope_path: vec![0],
+        }
     }
 
     pub(crate) fn enter(&mut self) {

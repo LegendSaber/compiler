@@ -112,8 +112,318 @@ impl InterInst {
         self.fun = Some(fun.clone());
     }
 
+    pub(crate) fn get_fun(&self) -> Option<Box<Fun>> {
+        self.fun.clone()
+    }
+
     pub(crate) fn set_target(&mut self, target: Option<Box<InterInst>>) {
         self.target = target;
+    }
+
+    pub(crate) fn get_label(&self) -> String {
+        self.label.clone()
+    }
+}
+
+impl InterInst {
+    pub(crate) fn load_var(&self, reg32: String, reg8: String, var: Option<Box<Var>>) {
+        if var.is_none() {
+            return;
+        }
+
+        let var = var.unwrap();
+        let reg = if var.is_char() {
+            reg8.clone()
+        } else {
+            reg32.clone()
+        };
+
+        if var.is_char() {
+            println!("mov {}, 0", reg32.clone());
+        }
+
+        let name = var.get_name();
+        if var.not_const() {
+            let offset = var.get_offset();
+
+            if offset == 0 {
+                if !var.get_array() {
+                    println!("mov {}, [{}]", reg, name);
+                } else {
+                    println!("mov {}, {}", reg, name);
+                }
+            } else {
+                if !var.get_array() {
+                    println!("mov {}, [ebp + {}]", reg, offset);
+                } else {
+                    println!("mov {}, [ebp + {}]", reg, offset);
+                }
+            }
+        } else {        // 常量
+            if var.is_base() {
+                println!("mov {}, {}", reg, var.get_val())
+            } else {
+                println!("mov {}, {}", reg, name);
+            }
+        }
+    }
+
+    pub(crate) fn lea_var(&self, reg: String, var: Option<Box<Var>>) {
+        if var.is_none() {
+            return;
+        }
+
+        let var = var.unwrap();
+        let name = var.get_name();
+        let offset = var.get_offset();
+
+        if offset == 0 {
+            println!("mov {}, {}", reg, name);
+        } else {
+            println!("lea {}, [ebp + {}]", reg, offset);
+        }
+    }
+
+    pub(crate) fn store_var(&self, reg32: String, reg8: String, var: Option<Box<Var>>) {
+        if var.is_none() {
+            return;
+        }
+
+        let var = var.unwrap();
+        let reg = if var.is_char() {
+            reg8
+        } else {
+            reg32
+        };
+        let name = var.get_name();
+        let offset = var.get_offset();
+
+        if offset == 0 {
+            println!("mov [{}], {}", name, reg);
+        } else {
+            println!("mov [ebp + %{}], {}", offset, name);
+        }
+    }
+
+    pub(crate) fn init_var(&self, var: Option<Box<Var>>) {
+        if var.is_none() {
+            return;
+        }
+
+        let var = var.unwrap();
+        if !var.is_un_init() {
+            println!("mov eax, {}", var.get_val());
+        } else {
+            println!("mov eax, {}", var.get_ptr_val());
+        }
+    }
+
+    pub(crate) fn to_x86(&self) {
+        if self.label != "" {
+            println!("{}:", self.label.as_str());
+        }
+
+        match self.op {
+            Operator::OpNop => {
+                println!("nop");
+            },
+            Operator::OpDec => {
+                self.init_var(self.arg1.clone());
+            },
+            Operator::OpEntry => {
+                println!("push ebp");
+                println!("mov ebp, esp");
+                let fun = self.get_fun().unwrap();
+                println!("sub eps, {}", fun.get_max_depth());
+            },
+            Operator::OpExit => {
+                println!("mov esp, ebp");
+                println!("pop ebp");
+                println!("ret");
+            },
+            Operator::OpAs => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpAdd => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("add eax, ebx");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpSub => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("sub eax, ebx");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpMul => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("imul ebx");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpDiv => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("idiv ebx");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpMod => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("idiv ebx");
+                self.store_var("eax".to_string(), "dl".to_string(), self.result.clone());
+            },
+            Operator::OpNeg => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("neg eax");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpGt => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("mov ecx, 0");
+                println!("cmp eax, ebx");
+                println!("setg cl");
+                self.store_var("ecx".to_string(), "cl".to_string(), self.result.clone());
+            },
+            Operator::OpGe => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("mov ecx, 0");
+                println!("cmp eax, ebx");
+                println!("setge cl");
+                self.store_var("ecx".to_string(), "cl".to_string(), self.result.clone());
+            },
+            Operator::OpLt => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("mov ecx, 0");
+                println!("cmp eax, ebx");
+                println!("setl cl");
+                self.store_var("ecx".to_string(), "cl".to_string(), self.result.clone());
+            },
+            Operator::OpLe => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("mov ecx, 0");
+                println!("cmp eax, ebx");
+                println!("setle cl");
+                self.store_var("ecx".to_string(), "cl".to_string(), self.result.clone());
+            },
+            Operator::OpEqu => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("mov ecx, 0");
+                println!("cmp eax, ebx");
+                println!("sete cl");
+                self.store_var("ecx".to_string(), "cl".to_string(), self.result.clone());
+            },
+            Operator::OpNe => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("mov ecx, 0");
+                println!("cmp eax, ebx");
+                println!("setne cl");
+                self.store_var("ecx".to_string(), "cl".to_string(), self.result.clone());
+            },
+            Operator::OpAnd => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("cmp eax, 0");
+                println!("setne cl");
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("cmp ebx, 0");
+                println!("setne bl");
+                println!("add eax, ebx");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpOr => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("cmp eax, 0");
+                println!("setne al");
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("cmp ebx, 0");
+                println!("setne bl");
+                println!("or eax, ebx");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpNot => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("mov ebx, 0");
+                println!("cmp eax, 0");
+                println!("sete bl");
+                self.store_var("ebx".to_string(), "bl".to_string(), self.result.clone());
+            },
+            Operator::OpLea => {
+                self.lea_var("eax".to_string(), self.arg1.clone());
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpSet => {
+                self.load_var("eax".to_string(), "al".to_string(), self.result.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.result.clone());
+                println!("mov [ebx], eax");
+            },
+            Operator::OpGet => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("mov eax, [eax]");
+                self.store_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpJmp => {
+                let target = self.target.clone().unwrap();
+                let label = target.get_label();
+                println!("jmp {}", label);
+            },
+            Operator::OpJt => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("cmp eax, 0");
+                let target = self.target.clone().unwrap();
+                let label = target.get_label();
+                println!("jne {}", label);
+            },
+            Operator::OpJf => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("cmp eax, 0");
+                let target = self.target.clone().unwrap();
+                let label = target.get_label();
+                println!("je {}", label);
+            },
+            Operator::OpJne => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                self.load_var("ebx".to_string(), "bl".to_string(), self.arg2.clone());
+                println!("cmp eax, ebx");
+                let target = self.target.clone().unwrap();
+                let label = target.get_label();
+                println!("jne {}", label);
+            },
+            Operator::OpArg => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                println!("push eax");
+            },
+            Operator::OpProc => {
+                let fun = self.fun.clone().unwrap();
+                println!("call {}", fun.get_name());
+                println!("add esp, {}", fun.get_para_var().len() * 4);
+            },
+            Operator::OpCall => {
+                let fun = self.fun.clone().unwrap();
+                println!("call {}", fun.get_name());
+                println!("add esp, {}", fun.get_para_var().len() * 4);
+                self.load_var("eax".to_string(), "al".to_string(), self.result.clone());
+            },
+            Operator::OpRet => {
+                let target = self.target.clone().unwrap();
+                let label = target.get_label();
+                println!("jmp {}", label);
+            },
+            Operator::OpRetv => {
+                self.load_var("eax".to_string(), "al".to_string(), self.arg1.clone());
+                let target = self.target.clone().unwrap();
+                let label = target.get_label();
+                println!("jmp {}", label);
+            },
+        }
+
     }
 }
 

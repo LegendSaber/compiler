@@ -262,6 +262,31 @@ impl Var {
     pub(crate) fn is_ref(&self) -> bool {
         !self.is_ptr
     }
+
+    // 是字符类型
+    pub(crate) fn is_char(&self) -> bool {
+        self.var_type == KwChar
+    }
+
+    // 是否是常量
+    pub(crate) fn not_const(&self) -> bool {
+        !self.literal
+    }
+
+    // 获取常量值
+    pub(crate) fn get_val(&self) -> isize {
+        self.int_val
+    }
+
+    // 是否初始化
+    pub(crate) fn is_un_init(&self) -> bool {
+        !self.inited
+    }
+
+    // 获取字符指针内容
+    pub(crate) fn get_ptr_val(&self) -> String {
+        self.ptr_val.clone()
+    }
 }
 
 impl Var {
@@ -512,6 +537,21 @@ impl Fun {
 
     pub(crate) fn get_type(&self) -> Tag {
         self.return_type
+    }
+
+    // 获取参数列表，用于为参数生成加载代码
+    pub(crate) fn get_para_var(&self) -> Vec<Box<Var>> {
+        self.para_var.clone()
+    }
+
+	// 获取最大栈帧深度
+    pub(crate) fn get_max_depth(&self) -> i32 {
+        self.max_depth
+    }
+
+    // 设置最大栈帧深度
+    pub(crate) fn set_max_depth(&mut self, max_depth: i32) {
+        self.max_depth = max_depth;
     }
 }
 
