@@ -107,7 +107,7 @@ impl<'a> Parser<'a> {
 
             let v = self.init(ext, t, true, name);
             self.sym_tab.add_var(v);
-            self.deflist(ext, t);
+            self.def_list(ext, t);
         } else {
             if equal_tag(&self.look, ID) {  // 变量、数组、函数
                 if let TokenType::Id(id) = &self.look {
@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
         let t = self.var_type();
         let v = self.defdata(false, t);
         self.sym_tab.add_var(v);
-        self.deflist(false, t);
+        self.def_list(false, t);
     }
 }
 
@@ -489,7 +489,7 @@ impl <'a> Parser<'a> {
 	    <arglist>			->	comma<arg><arglist>|^
     */
     fn args_list(&mut self, args: &mut Vec<Box<Var>>) {
-        if !self.match_tag(COMMA) {
+        if self.match_tag(COMMA) {
             if let Some(arg) = self.arg() {
                 args.push(arg);
                 self.args_list(args);
@@ -883,11 +883,11 @@ impl<'a> Parser<'a> {
     /*
 	    <deflist>			->	comma <defdata> <deflist>| semicon
     */
-    fn deflist(&mut self, ext: bool, t: Tag) {
+    fn def_list(&mut self, ext: bool, t: Tag) {
         if self.match_tag(COMMA) {  // 下一个声明
             let v = self.defdata(ext, t);
             self.sym_tab.add_var(v);
-            self.deflist(ext, t);
+            self.def_list(ext, t);
         } else if !self.match_tag(SEMICON) {
             // 出错了
             // 不是最后一个声明
@@ -895,7 +895,7 @@ impl<'a> Parser<'a> {
                 self.recovery(true, CommaLost, ColonWrong);
                 let v = self.defdata(ext, t);
                 self.sym_tab.add_var(v);
-                self.deflist(ext, t);
+                self.def_list(ext, t);
             } else {
                 self.recovery(type_first(&self.look) || statement_first(&self.look) || equal_tag(&self.look, KwExtern) || equal_tag(&self.look, RBRACK),
                              SemiconLost, SemiconWrong);
@@ -952,7 +952,7 @@ impl<'a> Parser<'a> {
         } else {
             let v = self.varrdef(ext, t, ptr, name);
             self.sym_tab.add_var(v);
-            self.deflist(ext, t);
+            self.def_list(ext, t);
         }
     }
 }

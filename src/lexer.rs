@@ -1,5 +1,5 @@
 use crate::common::LexError::{CharNoData, CharNoRQution, CommentNoEnd, NumBinType, NumHexType, OrNoPair, StrNoRQution, TokenNoExist};
-use crate::common::Tag::{self, ADD, ASSIGN, DEC, END, ERR, GE, GT, ID, INC, LE, LT, MOD, MUL, SUB, EQU, LEA, AND, NEQU, NOT, COMMA, COLON, SEMICON, LPAREN, RPAREN, LBRACK, RBRACK, LBRACE, RBRACE, DIV};
+use crate::common::Tag::{self, ADD, ASSIGN, DEC, END, ERR, GE, GT, ID, INC, LE, LT, MOD, MUL, SUB, EQU, LEA, AND, NEQU, NOT, COMMA, COLON, SEMICON, LPAREN, RPAREN, LBRACK, RBRACK, LBRACE, RBRACE, DIV, OR};
 use crate::scanner::Scanner;
 use crate::keywords::Keywords;
 use crate::token::{Char, Id, Num, Str, Token, TokenType};
@@ -313,16 +313,16 @@ impl<'a> Lexer<'a> {
                     },
                     '+' => {
                         if self.scan(Some('+')) {
-                            token = Some(TokenType::Token(Token::new(ADD)));
-                        } else {
                             token = Some(TokenType::Token(Token::new(INC)));
+                        } else {
+                            token = Some(TokenType::Token(Token::new(ADD)));
                         }
                     },
                     '-' => {
                         if self.scan(Some('-')) {
-                            token = Some(TokenType::Token(Token::new(SUB)));
-                        } else {
                             token = Some(TokenType::Token(Token::new(DEC)));
+                        } else {
+                            token = Some(TokenType::Token(Token::new(SUB)));
                         }
                     },
                     '*' => {
@@ -398,7 +398,7 @@ impl<'a> Lexer<'a> {
                     },
                     '|' => {
                         if self.scan(Some('|')) {
-                            token = Some(TokenType::Token(Token::new(NEQU)));
+                            token = Some(TokenType::Token(Token::new(OR)));
                         } else {
                             token = Some(TokenType::Token(Token::new(ERR)));
                         }
