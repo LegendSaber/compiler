@@ -433,9 +433,21 @@ pub(crate) struct InterCode {
 }
 
 impl InterCode {
+    pub(crate) fn new() -> InterCode {
+        Self {
+            code: Vec::new(),
+        }
+    }
+
     // 增加中间代码
     pub(crate) fn add_inst(&mut self, inst: Box<InterInst>) {
         self.code.push(inst);
+    }
+
+    pub(crate) fn print_code(&self) {
+        for inst in self.code.iter() {
+            inst.to_x86();
+        }
     }
 }
 

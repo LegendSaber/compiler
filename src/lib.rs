@@ -22,8 +22,10 @@ pub fn run() -> Result<(), failure::Error> {
     let mut lexer = Lexer::new(&mut scanner);
     let mut sym_tab = Box::new(SymTab::new());
     let gen_ir = Some(Box::new(GenIR::new(sym_tab.clone())));
+    sym_tab.set_ir(gen_ir.clone());
     let mut parser = Parser::new(&mut lexer, &mut sym_tab, gen_ir);
     parser.analyze();
+    parser.print_inter_code();
 
     Ok(())
 }

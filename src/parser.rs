@@ -41,6 +41,11 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // 输出中间代码
+    pub(crate) fn print_inter_code(&self) {
+        self.sym_tab.print_inter_code();
+    }
+
     // 移进
     fn move_token(&mut self) {
         self.look = self.lexer.tokenize();

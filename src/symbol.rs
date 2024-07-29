@@ -408,7 +408,6 @@ impl Var {
         self.offset
     }
 
-
     // 设置指针变量
     pub(crate) fn set_pointer(&mut self, p: Box<Var>) {
         self.ptr = Some(p);
@@ -569,5 +568,17 @@ impl Fun {
 
     pub(crate) fn get_return_point(&self) -> Option<Box<InterInst>> {
         self.return_point.clone()
+    }
+
+    // 输出中间代码
+    pub(crate) fn print_inter_code(&self) {
+        if self.externed {
+            return;
+        }
+        println!("-------------<{}>Start--------------", self.name.clone());
+        if let Some(inter_code) = self.inter_code.clone() {
+            inter_code.print_code();
+        }
+        println!("-------------<{}>End--------------", self.name.clone());
     }
 }

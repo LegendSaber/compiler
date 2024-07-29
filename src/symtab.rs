@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::common::SemError::{ExternFunDef, FunCallErr, FunDecErr, FunReDef, FunUnDec, VarReDef, VarUnDec};
+use crate::gen_ir::GenIR;
 use crate::intercode::InterInst;
 use crate::symbol::{Fun, Var, sem_error};
 
@@ -23,6 +24,7 @@ pub struct SymTab {
     cur_fun: Option<Box<Fun>>,          // 当前分析的函数
     scope_id: i32,                      // 作用域的唯一编号
     scope_path: Vec<i32>,               // 动态记录作用域的路径，全局为0,0 1 2-第一个函数的第一个局部块
+    ir: Option<Box<GenIR>>,             // 中间代码生成器
 }
 
 impl SymTab {
@@ -38,7 +40,13 @@ impl SymTab {
             cur_fun: None,
             scope_id: 0,
             scope_path: vec![0],
+            ir: None,
         }
+    }
+
+    // 设置中间代码生成器
+    pub(crate) fn set_ir(&mut self, ir: Option<Box<GenIR>>) {
+        self.ir = ir;
     }
 
     pub(crate) fn enter(&mut self) {
@@ -168,8 +176,9 @@ impl SymTab {
             cur_fun = last;
         }
 
-        self.cur_fun = Some(cur_fun);
-        // ir -> genFunHead(curFun) 产生函数入口
+        self.cur_fun = Some(cur_fun.clone());
+        // 产生函数入口
+        self.ir.clone().unwrap().gen_fun_head(cur_fun.clone());
     }
 
     // 结束定义一个函数
@@ -201,5 +210,12 @@ impl SymTab {
 
     pub(crate) fn get_cur_fun(&self) -> Option<Box<Fun>> {
         self.cur_fun.clone()
+    }
+
+    // 输出中间代码
+    pub(crate) fn print_inter_code(&self) {
+        for i in 0..self.fun_list.len() {
+            self.fun_tab[&self.fun_list[i].clone()].print_inter_code();
+        }
     }
 }
